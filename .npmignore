@@ -1,0 +1,21 @@
+# Source files
+src/
+tsconfig.json
+
+# Environment files
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+
+# Editor
+.cursor/
+
+# OS
+.DS_Store
+
+# Development
+node_modules/
+*.log
