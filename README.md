@@ -19,13 +19,14 @@ This MCP server provides AI coding assistants (Cursor, Claude Code, etc.) with a
 
 ## Prerequisites
 
-**Get your API key:**
+**Get your API key and Instance ID:**
 
 1. [Create an account on BlindPay](https://app.blindpay.com/sign-up)
 2. Create a development instance
 3. Go to the [BlindPay Dashboard](https://app.blindpay.com/)
 4. Select your instance and click on the **API Keys** tab
 5. Create a new API key
+6. Copy your instance ID (format: `in_xxxxxxxxxxxx`) from the dashboard url
 
 ## Installation
 
@@ -33,9 +34,9 @@ This MCP server provides AI coding assistants (Cursor, Claude Code, etc.) with a
 
 **One-click install:**
 
-[Add MCP to Cursor](https://cursor.com/en-US/install-mcp?name=blindpay&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBibGluZHBheS9tY3AiXX0=)
+[Add MCP to Cursor](https://cursor.com/en-US/install-mcp?name=blindpay&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBibGluZHBheS9tY3AiXSwiZW52Ijp7IkJMSU5EUEFZX0FQSV9LRVkiOiJ5b3VyLWFwaS1rZXktaGVyZSIsIkJMSU5EUEFZX0lOU1RBTkNFX0lEIjoieW91ci1pbnN0YW5jZS1pZC1oZXJlIn19Cg==)
 
-After installation, add your API key to `~/.cursor/mcp.json`:
+After installation, add your API key and instance ID to `~/.cursor/mcp.json`:
 
 ```json
 {
@@ -44,19 +45,22 @@ After installation, add your API key to `~/.cursor/mcp.json`:
       "command": "npx",
       "args": ["-y", "@blindpay/mcp"],
       "env": {
-        "BLINDPAY_API_KEY": "your-api-key-here"
+        "BLINDPAY_API_KEY": "your-api-key-here",
+        "BLINDPAY_INSTANCE_ID": "your-instance-id-here"
       }
     }
   }
 }
 ```
 
+> **Note:** `BLINDPAY_INSTANCE_ID` is optional but recommended. When set, you won't need to specify the instance ID in every prompt. You can still override it per request if needed.
+
 ### Claude Code
 
 Run the following command in your terminal:
 
 ```bash
-claude mcp add --transport stdio blindpay --env BLINDPAY_API_KEY=your-api-key-here -- npx -y @blindpay/mcp
+claude mcp add --transport stdio blindpay --env BLINDPAY_API_KEY=your-api-key-here --env BLINDPAY_INSTANCE_ID=your-instance-id-here -- npx -y @blindpay/mcp
 ```
 
 ### Claude Desktop
@@ -73,7 +77,8 @@ Add to your Claude Desktop configuration file:
       "command": "npx",
       "args": ["-y", "@blindpay/mcp"],
       "env": {
-        "BLINDPAY_API_KEY": "your-api-key-here"
+        "BLINDPAY_API_KEY": "your-api-key-here",
+        "BLINDPAY_INSTANCE_ID": "your-instance-id-here"
       }
     }
   }
@@ -92,6 +97,8 @@ Once configured, you can ask your AI assistant to interact with BlindPay:
 "Create a virtual account for receiver ID re_xxxxxxxxxxxx"
 
 "Show me the available payment rails"
+
+"Get all receivers" (instance_id is automatically used from environment if your environment variable is set)
 ```
 
 ## Documentation

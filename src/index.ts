@@ -5855,6 +5855,17 @@ async function executeApiTool(
   allSecuritySchemes: Record<string, any>
 ): Promise<CallToolResult> {
   try {
+    // Auto-inject instance_id from environment if not provided
+    const defaultInstanceId = process.env.BLINDPAY_INSTANCE_ID;
+    if (
+      defaultInstanceId &&
+      definition.inputSchema?.required?.includes('instance_id') &&
+      !toolArgs.instance_id
+    ) {
+      toolArgs.instance_id = defaultInstanceId;
+      console.error(`Auto-injected instance_id from BLINDPAY_INSTANCE_ID env var`);
+    }
+
     // Validate arguments against the input schema
     let validatedArgs: JsonObject;
     try {
