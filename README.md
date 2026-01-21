@@ -4,7 +4,7 @@
 [![twitter](https://img.shields.io/twitter/follow/blindpay?style=social)](https://twitter.com/intent/follow?screen_name=blindpay)
 [![npm version](https://img.shields.io/npm/v/@blindpay/mcp.svg)](https://www.npmjs.com/package/@blindpay/mcp)
 
-The official [Model Context Protocol](https://modelcontextprotocol.io/) server for [BlindPay](https://blindpay.com) - Global payments infrastructure made simple.
+The official [Model Context Protocol](https://modelcontextprotocol.io/) server for [BlindPay](https://blindpay.com) - Stablecoin API for global payments.
 
 ## What This MCP Server Does
 
