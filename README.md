@@ -8,7 +8,7 @@ The official [Model Context Protocol](https://modelcontextprotocol.io/) server f
 
 ## What This MCP Server Does
 
-This MCP server provides AI coding assistants (Cursor, Claude Code, etc.) with access to BlindPay's stablecoin payment infrastructure. It exposes tools that allow AI assistants to:
+This MCP server provides AI assistants (Cursor, Claude Code, Codex, etc.) with access to BlindPay's stablecoin payment infrastructure. It exposes tools that allow AI assistants to:
 
 - Create and manage receivers (individuals/businesses)
 - Process payouts and payins on multiple blockchains
@@ -28,11 +28,18 @@ This MCP server provides AI coding assistants (Cursor, Claude Code, etc.) with a
 5. Create a new API key
 6. Copy your instance ID (format: `in_xxxxxxxxxxxx`) from the dashboard url
 
+**Dependencies you need to have installed:**
+
+- [Node.js](https://nodejs.org/en/download)
+- [Npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+
+You can check if you have Node.js installed by running `node -v`. Same for Npm, you can check by running `npm -v`.
+
 ## Installation
 
 ### Cursor
 
-**One-click install:**
+One-click install:
 
 [Add MCP to Cursor](https://cursor.com/en-US/install-mcp?name=blindpay&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBibGluZHBheS9tY3AiXSwiZW52Ijp7IkJMSU5EUEFZX0FQSV9LRVkiOiJ5b3VyLWFwaS1rZXktaGVyZSIsIkJMSU5EUEFZX0lOU1RBTkNFX0lEIjoieW91ci1pbnN0YW5jZS1pZC1oZXJlIn19Cg==)
 
@@ -52,8 +59,6 @@ After installation, add your API key and instance ID to `~/.cursor/mcp.json`:
   }
 }
 ```
-
-> **Note:** `BLINDPAY_INSTANCE_ID` is optional but recommended. When set, you won't need to specify the instance ID in every prompt. You can still override it per request if needed.
 
 ### Claude Code
 
@@ -85,6 +90,26 @@ Add to your Claude Desktop configuration file:
 }
 ```
 
+### Codex
+
+Run the following command in your terminal:
+
+```bash
+codex mcp add blindpay --env BLINDPAY_API_KEY=your-api-key-here --env BLINDPAY_INSTANCE_ID=your-instance-id-here -- npx -y @blindpay/mcp
+```
+
+Or add to your `~/.codex/config.toml` (or project-scoped `.codex/config.toml`):
+
+```toml
+[mcp_servers.blindpay]
+command = "npx"
+args = ["-y", "@blindpay/mcp"]
+
+[mcp_servers.blindpay.env]
+BLINDPAY_API_KEY = "your-api-key-here"
+BLINDPAY_INSTANCE_ID = "your-instance-id-here"
+```
+
 ## Example Prompts
 
 Once configured, you can ask your AI assistant to interact with BlindPay:
@@ -94,12 +119,15 @@ Once configured, you can ask your AI assistant to interact with BlindPay:
 
 "List all my recent payouts from the last 7 days"
 
-"Create a virtual account for receiver ID re_xxxxxxxxxxxx"
+"Create a virtual account for receiver with ID re_xxxxxxxxxxxx"
 
 "Show me the available payment rails"
 
-"Get all receivers" (instance_id is automatically used from environment if your environment variable is set)
+"Get all receivers for instance in_xxxxxxxxxxxx"
 ```
+
+> [!TIP]
+> You can specify `BLINDPAY_INSTANCE_ID` in your initial prompt or add it as an environment variable. However, some AI tools may not detect it automatically, so you may need to include it explicitly in your prompt.
 
 ## Documentation
 
