@@ -19,7 +19,6 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { z, ZodError } from 'zod';
-import { jsonSchemaToZod } from 'json-schema-to-zod';
 import axios, { type AxiosRequestConfig, type AxiosError } from 'axios';
 
 /**
@@ -6893,9 +6892,7 @@ async function acquireOAuth2Token(
     }
 
     // Initialize token cache if needed
-    if (typeof global.__oauthTokenCache === 'undefined') {
-      global.__oauthTokenCache = {};
-    }
+    global.__oauthTokenCache ??= {};
 
     // Check if we have a cached token
     const cacheKey = `${schemeName}_${clientId}`;
@@ -7385,6 +7382,127 @@ function formatApiError(error: AxiosError): string {
 }
 
 /**
+ * Recursively converts a JSON Schema to a Zod schema for runtime validation.
+ * This implementation avoids using eval() for security reasons.
+ *
+ * @param schema JSON Schema node
+ * @param visited Set of visited $ref paths to prevent infinite recursion
+ * @returns Zod schema
+ */
+function jsonSchemaToZodSchema(schema: any, visited: Set<string> = new Set()): z.ZodTypeAny {
+  if (!schema || typeof schema !== 'object') {
+    return z.any();
+  }
+
+  if (schema.$ref) {
+    if (visited.has(schema.$ref)) {
+      return z.any();
+    }
+    visited.add(schema.$ref);
+  }
+
+  if (schema.anyOf) {
+    const schemas = schema.anyOf.map((s: any) => jsonSchemaToZodSchema(s, visited));
+    return schemas.length > 0 ? z.union(schemas as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]) : z.any();
+  }
+
+  if (schema.oneOf) {
+    const schemas = schema.oneOf.map((s: any) => jsonSchemaToZodSchema(s, visited));
+    return schemas.length > 0 ? z.union(schemas as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]) : z.any();
+  }
+
+  if (schema.allOf) {
+    return schema.allOf.reduce(
+      (acc: z.ZodTypeAny, s: any) => acc.and(jsonSchemaToZodSchema(s, visited)),
+      z.object({})
+    );
+  }
+
+  if (schema.enum) {
+    if (schema.enum.length === 0) return z.any();
+    if (schema.enum.length === 1) return z.literal(schema.enum[0]);
+    return z.enum(schema.enum as [string, ...string[]]);
+  }
+
+  if (schema.const !== undefined) {
+    return z.literal(schema.const);
+  }
+
+  const type = schema.type;
+
+  if (Array.isArray(type)) {
+    const schemas = type.map((t: string) => jsonSchemaToZodSchema({ ...schema, type: t }, visited));
+    return z.union(schemas as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
+  }
+
+  switch (type) {
+    case 'string': {
+      let s = z.string();
+      if (typeof schema.minLength === 'number') s = s.min(schema.minLength);
+      if (typeof schema.maxLength === 'number') s = s.max(schema.maxLength);
+      if (schema.pattern) {
+        try {
+          s = s.regex(new RegExp(schema.pattern));
+        } catch {
+          // Invalid regex pattern, skip
+        }
+      }
+      if (schema.format === 'email') s = s.email();
+      if (schema.format === 'uri' || schema.format === 'url') s = s.url();
+      if (schema.format === 'uuid') s = s.uuid();
+      if (schema.format === 'date-time') s = s.datetime();
+      return s;
+    }
+
+    case 'number':
+    case 'integer': {
+      let n = type === 'integer' ? z.number().int() : z.number();
+      if (typeof schema.minimum === 'number') n = n.min(schema.minimum);
+      if (typeof schema.maximum === 'number') n = n.max(schema.maximum);
+      if (typeof schema.exclusiveMinimum === 'number') n = n.gt(schema.exclusiveMinimum);
+      if (typeof schema.exclusiveMaximum === 'number') n = n.lt(schema.exclusiveMaximum);
+      if (typeof schema.multipleOf === 'number') n = n.multipleOf(schema.multipleOf);
+      return n;
+    }
+
+    case 'boolean':
+      return z.boolean();
+
+    case 'null':
+      return z.null();
+
+    case 'array': {
+      const itemSchema = schema.items ? jsonSchemaToZodSchema(schema.items, visited) : z.any();
+      let a = z.array(itemSchema);
+      if (typeof schema.minItems === 'number') a = a.min(schema.minItems);
+      if (typeof schema.maxItems === 'number') a = a.max(schema.maxItems);
+      return a;
+    }
+
+    case 'object': {
+      const properties = schema.properties || {};
+      const required = new Set(schema.required || []);
+      const shape: Record<string, z.ZodTypeAny> = {};
+
+      for (const [key, propSchema] of Object.entries(properties)) {
+        const propZod = jsonSchemaToZodSchema(propSchema, visited);
+        shape[key] = required.has(key) ? propZod : propZod.optional();
+      }
+
+      const obj = z.object(shape);
+
+      if (schema.additionalProperties === false) {
+        return obj.strict() as z.ZodTypeAny;
+      }
+      return obj.passthrough() as z.ZodTypeAny;
+    }
+
+    default:
+      return z.any();
+  }
+}
+
+/**
  * Converts a JSON Schema to a Zod schema for runtime validation
  *
  * @param jsonSchema JSON Schema
@@ -7396,14 +7514,13 @@ function getZodSchemaFromJsonSchema(jsonSchema: any, toolName: string): z.ZodTyp
     return z.object({}).passthrough();
   }
   try {
-    const zodSchemaString = jsonSchemaToZod(jsonSchema);
-    const zodSchema = eval(zodSchemaString);
+    const zodSchema = jsonSchemaToZodSchema(jsonSchema);
     if (typeof zodSchema?.parse !== 'function') {
-      throw new Error('Eval did not produce a valid Zod schema.');
+      throw new Error('Failed to produce a valid Zod schema.');
     }
     return zodSchema as z.ZodTypeAny;
   } catch (err: any) {
-    console.error(`Failed to generate/evaluate Zod schema for '${toolName}':`, err);
+    console.error(`Failed to generate Zod schema for '${toolName}':`, err);
     return z.object({}).passthrough();
   }
 }
