@@ -208,10 +208,10 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceivers',
+    'GetV1InstancesCustomers',
     {
-      name: 'GetV1InstancesReceivers',
-      description: `Retrieve Receivers`,
+      name: 'GetV1InstancesCustomers',
+      description: `Retrieve Customers`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -241,7 +241,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/receivers',
+      pathTemplate: '/v1/instances/{instance_id}/customers',
       executionParameters: [
         { name: 'instance_id', in: 'path' },
         { name: 'limit', in: 'query' },
@@ -255,10 +255,10 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'PostV1InstancesReceivers',
+    'PostV1InstancesCustomers',
     {
-      name: 'PostV1InstancesReceivers',
-      description: `Create Receiver`,
+      name: 'PostV1InstancesCustomers',
+      description: `Create Customer`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -1598,23 +1598,23 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
               tos_id: { type: ['string', 'null'], minLength: 15, maxLength: 15 },
             },
             required: ['type', 'kyc_type', 'email', 'country'],
-            description: 'Create a new receiver',
+            description: 'Create a new customer',
           },
         },
         required: ['instance_id'],
       },
       method: 'post',
-      pathTemplate: '/v1/instances/{instance_id}/receivers',
+      pathTemplate: '/v1/instances/{instance_id}/customers',
       executionParameters: [{ name: 'instance_id', in: 'path' }],
       requestBodyContentType: 'application/json',
       securityRequirements: [{ Bearer: [] }],
     },
   ],
   [
-    'GetV1InstancesReceiversById',
+    'GetV1InstancesCustomersById',
     {
-      name: 'GetV1InstancesReceiversById',
-      description: `Retrieve Receiver`,
+      name: 'GetV1InstancesCustomersById',
+      description: `Retrieve Customer`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -1624,7 +1624,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['id', 'instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{id}',
       executionParameters: [
         { name: 'id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -1634,10 +1634,10 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'PutV1InstancesReceiversById',
+    'PutV1InstancesCustomersById',
     {
-      name: 'PutV1InstancesReceiversById',
-      description: `Update Receiver`,
+      name: 'PutV1InstancesCustomersById',
+      description: `Update Customer`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -2963,13 +2963,13 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
               tos_id: { type: ['string', 'null'], minLength: 15, maxLength: 15 },
             },
             required: ['email', 'country'],
-            description: 'Update a receiver',
+            description: 'Update a customer',
           },
         },
         required: ['instance_id', 'id'],
       },
       method: 'put',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{id}',
       executionParameters: [
         { name: 'instance_id', in: 'path' },
         { name: 'id', in: 'path' },
@@ -2992,7 +2992,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['instance_id', 'id'],
       },
       method: 'delete',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{id}',
       executionParameters: [
         { name: 'instance_id', in: 'path' },
         { name: 'id', in: 'path' },
@@ -3005,7 +3005,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     'GetV1InstancesLimitsReceiversById',
     {
       name: 'GetV1InstancesLimitsReceiversById',
-      description: `Retrieve Receiver Limits`,
+      description: `Retrieve Customer Limits`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -3025,9 +3025,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversLimitIncrease',
+    'GetV1InstancesCustomersLimitIncrease',
     {
-      name: 'GetV1InstancesReceiversLimitIncrease',
+      name: 'GetV1InstancesCustomersLimitIncrease',
       description: `Retrieve Limit Increase Requests`,
       inputSchema: {
         type: 'object',
@@ -3038,7 +3038,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['instance_id', 'receiver_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/limit-increase',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/limit-increase',
       executionParameters: [
         { name: 'instance_id', in: 'path' },
         { name: 'receiver_id', in: 'path' },
@@ -3048,9 +3048,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'PostV1InstancesReceiversLimitIncrease',
+    'PostV1InstancesCustomersLimitIncrease',
     {
-      name: 'PostV1InstancesReceiversLimitIncrease',
+      name: 'PostV1InstancesCustomersLimitIncrease',
       description: `Request Limit Increase`,
       inputSchema: {
         type: 'object',
@@ -3089,7 +3089,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['instance_id', 'receiver_id'],
       },
       method: 'post',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/limit-increase',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/limit-increase',
       executionParameters: [
         { name: 'instance_id', in: 'path' },
         { name: 'receiver_id', in: 'path' },
@@ -3099,9 +3099,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversBankAccounts',
+    'GetV1InstancesCustomersBankAccounts',
     {
-      name: 'GetV1InstancesReceiversBankAccounts',
+      name: 'GetV1InstancesCustomersBankAccounts',
       description: `Retrieve Bank Accounts`,
       inputSchema: {
         type: 'object',
@@ -3112,7 +3112,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/bank-accounts',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -3122,9 +3122,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'PostV1InstancesReceiversBankAccounts',
+    'PostV1InstancesCustomersBankAccounts',
     {
-      name: 'PostV1InstancesReceiversBankAccounts',
+      name: 'PostV1InstancesCustomersBankAccounts',
       description: `Add Bank Account`,
       inputSchema: {
         type: 'object',
@@ -5252,7 +5252,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id'],
       },
       method: 'post',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/bank-accounts',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5262,9 +5262,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversBankAccountsById',
+    'GetV1InstancesCustomersBankAccountsById',
     {
-      name: 'GetV1InstancesReceiversBankAccountsById',
+      name: 'GetV1InstancesCustomersBankAccountsById',
       description: `Retrieve Bank Account`,
       inputSchema: {
         type: 'object',
@@ -5276,7 +5276,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id', 'id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/bank-accounts/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{id}',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5301,7 +5301,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id', 'id'],
       },
       method: 'delete',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/bank-accounts/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{id}',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5312,9 +5312,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversVirtualAccounts',
+    'GetV1InstancesCustomersVirtualAccounts',
     {
-      name: 'GetV1InstancesReceiversVirtualAccounts',
+      name: 'GetV1InstancesCustomersVirtualAccounts',
       description: `Retrieve Virtual Accounts`,
       inputSchema: {
         type: 'object',
@@ -5325,7 +5325,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/virtual-accounts',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/virtual-accounts',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5335,9 +5335,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'PostV1InstancesReceiversVirtualAccounts',
+    'PostV1InstancesCustomersVirtualAccounts',
     {
-      name: 'PostV1InstancesReceiversVirtualAccounts',
+      name: 'PostV1InstancesCustomersVirtualAccounts',
       description: `Create Virtual Account`,
       inputSchema: {
         type: 'object',
@@ -5359,7 +5359,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id'],
       },
       method: 'post',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/virtual-accounts',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/virtual-accounts',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5369,9 +5369,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversVirtualAccountsById',
+    'GetV1InstancesCustomersVirtualAccountsById',
     {
-      name: 'GetV1InstancesReceiversVirtualAccountsById',
+      name: 'GetV1InstancesCustomersVirtualAccountsById',
       description: `Retrieve Virtual Account`,
       inputSchema: {
         type: 'object',
@@ -5383,7 +5383,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id', 'id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/virtual-accounts/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/virtual-accounts/{id}',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5417,7 +5417,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id', 'id'],
       },
       method: 'put',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/virtual-accounts/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/virtual-accounts/{id}',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5428,9 +5428,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversBlockchainWalletsSignMessage',
+    'GetV1InstancesCustomersBlockchainWalletsSignMessage',
     {
-      name: 'GetV1InstancesReceiversBlockchainWalletsSignMessage',
+      name: 'GetV1InstancesCustomersBlockchainWalletsSignMessage',
       description: `Retrieve Blockchain Wallet Message`,
       inputSchema: {
         type: 'object',
@@ -5442,7 +5442,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       },
       method: 'get',
       pathTemplate:
-        '/v1/instances/{instance_id}/receivers/{receiver_id}/blockchain-wallets/sign-message',
+        '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets/sign-message',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5452,9 +5452,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversBlockchainWallets',
+    'GetV1InstancesCustomersBlockchainWallets',
     {
-      name: 'GetV1InstancesReceiversBlockchainWallets',
+      name: 'GetV1InstancesCustomersBlockchainWallets',
       description: `Retrieve Blockchain Wallets`,
       inputSchema: {
         type: 'object',
@@ -5465,7 +5465,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/blockchain-wallets',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5475,9 +5475,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'PostV1InstancesReceiversBlockchainWallets',
+    'PostV1InstancesCustomersBlockchainWallets',
     {
-      name: 'PostV1InstancesReceiversBlockchainWallets',
+      name: 'PostV1InstancesCustomersBlockchainWallets',
       description: `Add Blockchain Wallet`,
       inputSchema: {
         type: 'object',
@@ -5517,7 +5517,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id'],
       },
       method: 'post',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/blockchain-wallets',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5527,9 +5527,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversBlockchainWalletsById',
+    'GetV1InstancesCustomersBlockchainWalletsById',
     {
-      name: 'GetV1InstancesReceiversBlockchainWalletsById',
+      name: 'GetV1InstancesCustomersBlockchainWalletsById',
       description: `Retrieve Blockchain Wallet`,
       inputSchema: {
         type: 'object',
@@ -5541,7 +5541,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id', 'id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/blockchain-wallets/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets/{id}',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5566,7 +5566,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['receiver_id', 'instance_id', 'id'],
       },
       method: 'delete',
-      pathTemplate: '/v1/instances/{instance_id}/receivers/{receiver_id}/blockchain-wallets/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets/{id}',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5577,9 +5577,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversBankAccountsOfframpWallets',
+    'GetV1InstancesCustomersBankAccountsOfframpWallets',
     {
-      name: 'GetV1InstancesReceiversBankAccountsOfframpWallets',
+      name: 'GetV1InstancesCustomersBankAccountsOfframpWallets',
       description: `Get Offramp Wallets`,
       inputSchema: {
         type: 'object',
@@ -5592,7 +5592,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       },
       method: 'get',
       pathTemplate:
-        '/v1/instances/{instance_id}/receivers/{receiver_id}/bank-accounts/{bank_account_id}/offramp-wallets',
+        '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{bank_account_id}/offramp-wallets',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5603,9 +5603,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'PostV1InstancesReceiversBankAccountsOfframpWallets',
+    'PostV1InstancesCustomersBankAccountsOfframpWallets',
     {
-      name: 'PostV1InstancesReceiversBankAccountsOfframpWallets',
+      name: 'PostV1InstancesCustomersBankAccountsOfframpWallets',
       description: `Create Offramp Wallet`,
       inputSchema: {
         type: 'object',
@@ -5627,7 +5627,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       },
       method: 'post',
       pathTemplate:
-        '/v1/instances/{instance_id}/receivers/{receiver_id}/bank-accounts/{bank_account_id}/offramp-wallets',
+        '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{bank_account_id}/offramp-wallets',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -5638,9 +5638,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesReceiversBankAccountsOfframpWalletsById',
+    'GetV1InstancesCustomersBankAccountsOfframpWalletsById',
     {
-      name: 'GetV1InstancesReceiversBankAccountsOfframpWalletsById',
+      name: 'GetV1InstancesCustomersBankAccountsOfframpWalletsById',
       description: `Get Offramp Wallet`,
       inputSchema: {
         type: 'object',
@@ -5654,7 +5654,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       },
       method: 'get',
       pathTemplate:
-        '/v1/instances/{instance_id}/receivers/{receiver_id}/bank-accounts/{bank_account_id}/offramp-wallets/{id}',
+        '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{bank_account_id}/offramp-wallets/{id}',
       executionParameters: [
         { name: 'receiver_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
