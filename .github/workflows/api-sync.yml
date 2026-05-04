@@ -1,0 +1,140 @@
+name: API Sync
+
+on:
+  repository_dispatch:
+    types: [api-sync]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  sync:
+    name: Regenerate MCP from API spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch filtered spec from api-sync-data
+        run: |
+          mkdir -p .api-sync
+          git fetch origin api-sync-data
+          git show origin/api-sync-data:.api-sync/openapi.mcp.json > .api-sync/openapi.mcp.json
+          echo "Spec at .api-sync/openapi.mcp.json"
+          jq '.paths | length' .api-sync/openapi.mcp.json
+
+      - name: Check for existing api-sync PR
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh pr list --head api-sync --json number --jq '.[0].number // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            echo "existing_pr=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "Found existing api-sync PR: #$PR_NUMBER"
+          else
+            echo "existing_pr=" >> $GITHUB_OUTPUT
+            echo "No existing api-sync PR found"
+          fi
+
+      - name: Create or checkout api-sync branch
+        run: |
+          git fetch origin api-sync 2>/dev/null || true
+          if git rev-parse --verify origin/api-sync >/dev/null 2>&1; then
+            git checkout api-sync
+            git reset --hard origin/main
+          else
+            git checkout -b api-sync
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate reference MCP server from spec
+        run: |
+          npm run generate
+          echo "Generated reference at /tmp/mcp-generated/src/index.ts"
+          wc -l /tmp/mcp-generated/src/index.ts || true
+
+      - name: Merge regenerated tool definitions with Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--model claude-sonnet-4-20250514 --allowedTools "Bash(*),Read,Edit,Write,Glob,Grep"'
+          prompt: |
+            You are syncing this MCP server with the latest BlindPay API spec.
+
+            Required reading:
+            1. CLAUDE.md (in this repo) — describes the file layout and the
+               customizations that MUST survive every regeneration.
+            2. /tmp/mcp-generated/src/index.ts — the freshly regenerated
+               reference output produced by openapi-mcp-generator from the
+               filtered API spec.
+            3. src/index.ts — the live file you must update.
+
+            Goal: bring src/index.ts in line with the regenerated reference,
+            while preserving every customization listed in CLAUDE.md.
+
+            Process:
+            1. Replace the toolDefinitionMap content in src/index.ts with the
+               toolDefinitionMap content from /tmp/mcp-generated/src/index.ts.
+               This is the bulk of the work and is purely data.
+            2. Compare the rest of the file (imports, helpers, executeApiTool,
+               main, cleanup) with the reference. Apply non-customization
+               changes (e.g. new helper signatures) but DO NOT regress any of
+               the documented customizations:
+                 - Custom jsonSchemaToZodSchema (no json-schema-to-zod import).
+                 - global.__oauthTokenCache ??= {} idiom.
+                 - Auto-injection of instance_id from BLINDPAY_INSTANCE_ID in
+                   executeApiTool.
+            3. Bump SERVER_VERSION (patch by default; minor if tools were
+               added or removed).
+            4. Run `npm run typecheck` and `npm run build`. Fix any errors.
+            5. Do NOT touch .github/workflows/.
+            6. Do NOT create commits — leave changes in the working tree.
+
+            If you cannot reconcile a conflict between the regen and the
+            customizations, leave a TODO comment with `// TODO(api-sync):` so
+            a human reviewer can address it.
+
+      - name: Commit and push
+        id: commit
+        run: |
+          git remote set-url origin "https://x-access-token:${{ secrets.SDK_SYNC_PAT }}@github.com/${{ github.repository }}.git"
+          git checkout -- .github/workflows/ 2>/dev/null || true
+          git add -A
+          git reset HEAD .github/workflows/ 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: sync MCP with API changes"
+          git push --force-with-lease origin api-sync
+
+      - name: Create or update PR
+        if: steps.commit.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SDK_SYNC_PAT }}
+        run: |
+          EXISTING_PR="${{ steps.check-pr.outputs.existing_pr }}"
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Updating existing PR #$EXISTING_PR"
+            gh pr comment "$EXISTING_PR" --body "Updated with latest API changes."
+          else
+            gh pr create \
+              --title "feat: sync MCP with API changes" \
+              --body "Automated MCP update from API changes." \
+              --base main \
+              --head api-sync \
+              --label api-sync
+          fi
