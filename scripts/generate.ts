@@ -22,7 +22,7 @@ const OUT_DIR = process.env.MCP_GENERATE_OUT ?? '/tmp/mcp-generated';
 
 if (!existsSync(SPEC_PATH)) {
   console.error(`Spec not found at ${SPEC_PATH}.`);
-  console.error('Fetch the api-sync-data branch first or set MCP_GENERATE_SPEC.');
+  console.error('The api-sync workflow fetches it from the api-sync-data branch before running this script.');
   process.exit(1);
 }
 
