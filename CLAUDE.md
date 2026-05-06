@@ -40,8 +40,8 @@ scripts/generate.ts         # Runs openapi-mcp-generator to produce a
 The file has three sections:
 
 1. **Imports + server constants** (lines ~1-60). Constants `SERVER_NAME`,
-   `SERVER_VERSION`, `API_BASE_URL`. SERVER_VERSION must be bumped on every
-   sync.
+   `SERVER_VERSION`, `API_BASE_URL`. `SERVER_VERSION` must be bumped on every
+   sync, and kept in sync with `package.json`'s `version` field.
 2. **`toolDefinitionMap`** (lines ~60-6800). Pure data, derived 1:1 from the
    OpenAPI spec. This is what the generator produces. **Never hand-edit
    tool entries here** — fix them upstream in the API spec.
@@ -94,8 +94,9 @@ without prompting the user every call.
 
 ## Sync workflow conventions
 
-- Every api-sync run: bump `SERVER_VERSION` (patch by default; minor if the
-  generator added new tools or removed any).
+- Every api-sync run: bump both `SERVER_VERSION` in `src/index.ts` and the
+  `version` field in `package.json`. Keep them in lockstep. Patch bump by
+  default; minor if the generator added new tools or removed any.
 - Run `npm run typecheck` and `npm run build` after merging. Both must pass
   before pushing.
 - Never write the full regenerated file directly to `src/index.ts` — the

@@ -65,7 +65,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: '--model claude-sonnet-4-20250514 --allowedTools "Bash(*),Read,Edit,Write,Glob,Grep"'
+          claude_args: '--model claude-sonnet-4-6 --allowedTools "Bash(*),Read,Edit,Write,Glob,Grep"'
           prompt: |
             You are syncing this MCP server with the latest BlindPay API spec.
 
@@ -92,8 +92,9 @@ jobs:
                  - global.__oauthTokenCache ??= {} idiom.
                  - Auto-injection of instance_id from BLINDPAY_INSTANCE_ID in
                    executeApiTool.
-            3. Bump SERVER_VERSION (patch by default; minor if tools were
-               added or removed).
+            3. Bump both SERVER_VERSION (src/index.ts) and the version
+               field in package.json. Keep them in lockstep. Patch bump by
+               default; minor if tools were added or removed.
             4. Run `npm run typecheck` and `npm run build`. Fix any errors.
             5. Do NOT touch .github/workflows/.
             6. Do NOT create commits — leave changes in the working tree.
