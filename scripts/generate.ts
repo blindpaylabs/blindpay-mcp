@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Runs openapi-mcp-generator against the filtered OpenAPI spec at
- * .api-sync/openapi.mcp.json and writes the generated reference output to
+ * .api-sync/openapi.json and writes the generated reference output to
  * /tmp/mcp-generated/. The api-sync workflow then asks Claude to merge the
  * regenerated tool definitions into src/index.ts while preserving the
  * customizations documented in CLAUDE.md.
@@ -10,14 +10,14 @@
  *   npm run generate
  *
  * Required input:
- *   .api-sync/openapi.mcp.json   (pulled from the api-sync-data branch)
+ *   .api-sync/openapi.json   (pulled from the api-sync-data branch)
  */
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const SPEC_PATH = resolve(process.cwd(), '.api-sync/openapi.mcp.json');
+const SPEC_PATH = resolve(process.cwd(), '.api-sync/openapi.json');
 const OUT_DIR = process.env.MCP_GENERATE_OUT ?? '/tmp/mcp-generated';
 
 if (!existsSync(SPEC_PATH)) {

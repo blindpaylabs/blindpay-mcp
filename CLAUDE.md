@@ -5,18 +5,19 @@
 ```
 npm run typecheck     # tsc --noEmit
 npm run build         # tsc + chmod the entry point
-npm run generate      # Regenerate src/index.ts from .api-sync/openapi.mcp.json
+npm run generate      # Regenerate src/index.ts from .api-sync/openapi.json
 ```
 
 ## How updates work
 
-This repo is auto-synced with the BlindPay API. Whenever a route tagged
-`x-mcp` (or default-included via `x-sdk: true`) changes upstream, the
-workflow at `.github/workflows/api-sync.yml` fires:
+This repo is auto-synced with the BlindPay public API surface — the same
+set of routes shown on the public docs site (`/doc`). When that surface
+changes upstream, `.github/workflows/api-sync.yml` fires:
 
-1. The blindpay-v2 `mcp-sync.yml` workflow filters the OpenAPI spec down to
-   MCP-eligible routes and pushes it to this repo's `api-sync-data` branch
-   at `.api-sync/openapi.mcp.json`. Then it fires a `repository_dispatch`
+1. The blindpay-v2 `mcp-sync.yml` workflow generates `apps/api/openapi.json`
+   (already filtered by `applyPublicTagFilter` to public-tagged routes)
+   and pushes it to this repo's `api-sync-data` branch at
+   `.api-sync/openapi.json`. Then it fires a `repository_dispatch`
    `api-sync` event.
 2. `api-sync.yml` consumes the event, runs `npm run generate` to produce a
    fresh reference file from the spec, then asks Claude to merge the
@@ -29,7 +30,7 @@ workflow at `.github/workflows/api-sync.yml` fires:
 ```
 src/index.ts                # Whole MCP server in one file. Generated entry,
                             # then hand-customized helpers.
-.api-sync/openapi.mcp.json  # Filtered OpenAPI spec, written by upstream
+.api-sync/openapi.json      # Public OpenAPI spec, written by upstream
                             # workflow on the api-sync-data branch.
 scripts/generate.ts         # Runs openapi-mcp-generator to produce a
                             # reference index.ts at /tmp/mcp-generated/.

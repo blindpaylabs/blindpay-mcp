@@ -24,9 +24,9 @@ jobs:
         run: |
           mkdir -p .api-sync
           git fetch origin api-sync-data
-          git show origin/api-sync-data:.api-sync/openapi.mcp.json > .api-sync/openapi.mcp.json
-          echo "Spec at .api-sync/openapi.mcp.json"
-          jq '.paths | length' .api-sync/openapi.mcp.json
+          git show origin/api-sync-data:.api-sync/openapi.json > .api-sync/openapi.json
+          echo "Spec at .api-sync/openapi.json"
+          jq '.paths | length' .api-sync/openapi.json
 
       - name: Check for existing api-sync PR
         id: check-pr
