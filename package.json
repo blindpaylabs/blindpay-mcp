@@ -21,6 +21,7 @@
     "start": "node build/index.js",
     "build": "tsc && chmod 755 build/index.js",
     "typecheck": "tsc --noEmit",
+    "generate": "node --import tsx scripts/generate.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -55,6 +56,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.2",
+    "openapi-mcp-generator": "^3.1.5",
+    "tsx": "^4.19.2",
     "typescript": "^5.8.3"
   },
   "peerDependencies": {
