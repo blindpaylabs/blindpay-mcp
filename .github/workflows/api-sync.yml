@@ -22,11 +22,11 @@ jobs:
 
       - name: Fetch filtered spec from api-sync-data
         run: |
-          mkdir -p .api-sync
+          mkdir -p /tmp/mcp-sync
           git fetch origin api-sync-data
-          git show origin/api-sync-data:.api-sync/openapi.json > .api-sync/openapi.json
-          echo "Spec at .api-sync/openapi.json"
-          jq '.paths | length' .api-sync/openapi.json
+          git show origin/api-sync-data:.api-sync/openapi.json > /tmp/mcp-sync/openapi.json
+          echo "Spec at /tmp/mcp-sync/openapi.json"
+          jq '.paths | length' /tmp/mcp-sync/openapi.json
 
       - name: Check for existing api-sync PR
         id: check-pr
@@ -51,6 +51,11 @@ jobs:
           else
             git checkout -b api-sync
           fi
+
+      - name: Prepare filtered spec
+        run: |
+          mkdir -p .api-sync
+          cp /tmp/mcp-sync/openapi.json .api-sync/openapi.json
 
       - name: Install dependencies
         run: npm ci
@@ -109,7 +114,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${{ secrets.SDK_SYNC_PAT }}@github.com/${{ github.repository }}.git"
           git checkout -- .github/workflows/ 2>/dev/null || true
           git add -A
-          git reset HEAD .github/workflows/ 2>/dev/null || true
+          git reset HEAD .github/workflows/ .api-sync/ 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No changes to commit"
             echo "has_changes=false" >> $GITHUB_OUTPUT
@@ -136,6 +141,5 @@ jobs:
               --title "feat: sync MCP with API changes" \
               --body "Automated MCP update from API changes." \
               --base main \
-              --head api-sync \
-              --label api-sync
+              --head api-sync
           fi
