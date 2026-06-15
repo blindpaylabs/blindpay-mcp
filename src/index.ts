@@ -44,7 +44,7 @@ interface McpToolDefinition {
  * Server configuration
  */
 export const SERVER_NAME = '@blindpay/mcp';
-export const SERVER_VERSION = '1.2.0';
+export const SERVER_VERSION = '1.3.0';
 export const API_BASE_URL = 'https://api.blindpay.com';
 
 /**
@@ -191,7 +191,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
             type: 'object',
             properties: {
               idempotency_key: { type: 'string', format: 'uuid' },
-              receiver_id: { type: ['string', 'null'], minLength: 15, maxLength: 15 },
+              customer_id: { type: ['string', 'null'], minLength: 15, maxLength: 15 },
               redirect_url: { type: ['string', 'null'], format: 'uri' },
             },
             required: ['idempotency_key'],
@@ -3015,7 +3015,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['id', 'instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/limits/receivers/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{id}/limits',
       executionParameters: [
         { name: 'id', in: 'path' },
         { name: 'instance_id', in: 'path' },
@@ -3033,15 +3033,15 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         type: 'object',
         properties: {
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['instance_id', 'receiver_id'],
+        required: ['instance_id', 'customer_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/limit-increase',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/limit-increase',
       executionParameters: [
         { name: 'instance_id', in: 'path' },
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
       ],
       requestBodyContentType: undefined,
       securityRequirements: [{ Bearer: [] }],
@@ -3056,7 +3056,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         type: 'object',
         properties: {
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           requestBody: {
             type: 'object',
             properties: {
@@ -3086,13 +3086,13 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
             description: 'Request new limit increase',
           },
         },
-        required: ['instance_id', 'receiver_id'],
+        required: ['instance_id', 'customer_id'],
       },
       method: 'post',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/limit-increase',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/limit-increase',
       executionParameters: [
         { name: 'instance_id', in: 'path' },
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
       ],
       requestBodyContentType: 'application/json',
       securityRequirements: [{ Bearer: [] }],
@@ -3106,15 +3106,15 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id'],
+        required: ['customer_id', 'instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/bank-accounts',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
       ],
       requestBodyContentType: undefined,
@@ -3129,7 +3129,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           requestBody: {
             type: 'object',
@@ -5249,12 +5249,12 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
             description: 'Create a new bank account',
           },
         },
-        required: ['receiver_id', 'instance_id'],
+        required: ['customer_id', 'instance_id'],
       },
       method: 'post',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/bank-accounts',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
       ],
       requestBodyContentType: 'application/json',
@@ -5269,16 +5269,16 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id', 'id'],
+        required: ['customer_id', 'instance_id', 'id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/bank-accounts/{id}',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
         { name: 'id', in: 'path' },
       ],
@@ -5294,16 +5294,16 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id', 'id'],
+        required: ['customer_id', 'instance_id', 'id'],
       },
       method: 'delete',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/bank-accounts/{id}',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
         { name: 'id', in: 'path' },
       ],
@@ -5319,15 +5319,15 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id'],
+        required: ['customer_id', 'instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/virtual-accounts',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/virtual-accounts',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
       ],
       requestBodyContentType: undefined,
@@ -5342,7 +5342,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           requestBody: {
             type: 'object',
@@ -5356,12 +5356,12 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
             description: 'Create a new virtual account',
           },
         },
-        required: ['receiver_id', 'instance_id'],
+        required: ['customer_id', 'instance_id'],
       },
       method: 'post',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/virtual-accounts',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/virtual-accounts',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
       ],
       requestBodyContentType: 'application/json',
@@ -5376,16 +5376,16 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id', 'id'],
+        required: ['customer_id', 'instance_id', 'id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/virtual-accounts/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/virtual-accounts/{id}',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
         { name: 'id', in: 'path' },
       ],
@@ -5401,7 +5401,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           id: { type: 'string', minLength: 15, maxLength: 15 },
           requestBody: {
@@ -5414,12 +5414,12 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
             description: 'Update a new virtual account',
           },
         },
-        required: ['receiver_id', 'instance_id', 'id'],
+        required: ['customer_id', 'instance_id', 'id'],
       },
       method: 'put',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/virtual-accounts/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/virtual-accounts/{id}',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
         { name: 'id', in: 'path' },
       ],
@@ -5435,16 +5435,16 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id'],
+        required: ['customer_id', 'instance_id'],
       },
       method: 'get',
       pathTemplate:
-        '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets/sign-message',
+        '/v1/instances/{instance_id}/customers/{customer_id}/blockchain-wallets/sign-message',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
       ],
       requestBodyContentType: undefined,
@@ -5459,15 +5459,15 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id'],
+        required: ['customer_id', 'instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/blockchain-wallets',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
       ],
       requestBodyContentType: undefined,
@@ -5482,7 +5482,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           requestBody: {
             type: 'object',
@@ -5514,12 +5514,12 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
             description: 'Create a new blockchain wallet',
           },
         },
-        required: ['receiver_id', 'instance_id'],
+        required: ['customer_id', 'instance_id'],
       },
       method: 'post',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/blockchain-wallets',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
       ],
       requestBodyContentType: 'application/json',
@@ -5534,16 +5534,16 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id', 'id'],
+        required: ['customer_id', 'instance_id', 'id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/blockchain-wallets/{id}',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
         { name: 'id', in: 'path' },
       ],
@@ -5559,16 +5559,16 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id', 'id'],
+        required: ['customer_id', 'instance_id', 'id'],
       },
       method: 'delete',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{receiver_id}/blockchain-wallets/{id}',
+      pathTemplate: '/v1/instances/{instance_id}/customers/{customer_id}/blockchain-wallets/{id}',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
         { name: 'id', in: 'path' },
       ],
@@ -5584,17 +5584,17 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           bank_account_id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id', 'bank_account_id'],
+        required: ['customer_id', 'instance_id', 'bank_account_id'],
       },
       method: 'get',
       pathTemplate:
-        '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{bank_account_id}/offramp-wallets',
+        '/v1/instances/{instance_id}/customers/{customer_id}/bank-accounts/{bank_account_id}/offramp-wallets',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
         { name: 'bank_account_id', in: 'path' },
       ],
@@ -5610,7 +5610,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           bank_account_id: { type: 'string', minLength: 15, maxLength: 15 },
           requestBody: {
@@ -5623,13 +5623,13 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
             description: 'Create a new offramp wallet',
           },
         },
-        required: ['receiver_id', 'instance_id', 'bank_account_id'],
+        required: ['customer_id', 'instance_id', 'bank_account_id'],
       },
       method: 'post',
       pathTemplate:
-        '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{bank_account_id}/offramp-wallets',
+        '/v1/instances/{instance_id}/customers/{customer_id}/bank-accounts/{bank_account_id}/offramp-wallets',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
         { name: 'bank_account_id', in: 'path' },
       ],
@@ -5645,18 +5645,18 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
       inputSchema: {
         type: 'object',
         properties: {
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           instance_id: { type: 'string', minLength: 15, maxLength: 15 },
           bank_account_id: { type: 'string', minLength: 15, maxLength: 15 },
           id: { type: 'string', minLength: 15, maxLength: 15 },
         },
-        required: ['receiver_id', 'instance_id', 'bank_account_id', 'id'],
+        required: ['customer_id', 'instance_id', 'bank_account_id', 'id'],
       },
       method: 'get',
       pathTemplate:
-        '/v1/instances/{instance_id}/customers/{receiver_id}/bank-accounts/{bank_account_id}/offramp-wallets/{id}',
+        '/v1/instances/{instance_id}/customers/{customer_id}/bank-accounts/{bank_account_id}/offramp-wallets/{id}',
       executionParameters: [
-        { name: 'receiver_id', in: 'path' },
+        { name: 'customer_id', in: 'path' },
         { name: 'instance_id', in: 'path' },
         { name: 'bank_account_id', in: 'path' },
         { name: 'id', in: 'path' },
@@ -5846,7 +5846,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
             description:
               'A cursor for use in pagination. ending_before is an object ID that defines your place in the list.',
           },
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           status: {
             type: 'string',
             enum: ['processing', 'failed', 'refunded', 'completed', 'on_hold'],
@@ -5862,7 +5862,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         { name: 'offset', in: 'query' },
         { name: 'starting_after', in: 'query' },
         { name: 'ending_before', in: 'query' },
-        { name: 'receiver_id', in: 'query' },
+        { name: 'customer_id', in: 'query' },
         { name: 'status', in: 'query' },
       ],
       requestBodyContentType: undefined,
@@ -6230,7 +6230,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
             description:
               'A cursor for use in pagination. ending_before is an object ID that defines your place in the list.',
           },
-          receiver_id: { type: 'string', minLength: 15, maxLength: 15 },
+          customer_id: { type: 'string', minLength: 15, maxLength: 15 },
           status: {
             type: 'string',
             enum: ['processing', 'on_hold', 'failed', 'refunded', 'completed'],
@@ -6246,7 +6246,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         { name: 'offset', in: 'query' },
         { name: 'starting_after', in: 'query' },
         { name: 'ending_before', in: 'query' },
-        { name: 'receiver_id', in: 'query' },
+        { name: 'customer_id', in: 'query' },
         { name: 'status', in: 'query' },
       ],
       requestBodyContentType: undefined,
