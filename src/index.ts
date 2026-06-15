@@ -2979,9 +2979,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'DeleteV1InstancesReceiversById',
+    'DeleteV1InstancesCustomersById',
     {
-      name: 'DeleteV1InstancesReceiversById',
+      name: 'DeleteV1InstancesCustomersById',
       description: `Delete Receiver`,
       inputSchema: {
         type: 'object',
@@ -5287,9 +5287,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'DeleteV1InstancesReceiversBankAccountsById',
+    'DeleteV1InstancesCustomersBankAccountsById',
     {
-      name: 'DeleteV1InstancesReceiversBankAccountsById',
+      name: 'DeleteV1InstancesCustomersBankAccountsById',
       description: `Remove Bank Account`,
       inputSchema: {
         type: 'object',
@@ -5394,9 +5394,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'PutV1InstancesReceiversVirtualAccountsById',
+    'PutV1InstancesCustomersVirtualAccountsById',
     {
-      name: 'PutV1InstancesReceiversVirtualAccountsById',
+      name: 'PutV1InstancesCustomersVirtualAccountsById',
       description: `Update Virtual Account`,
       inputSchema: {
         type: 'object',
@@ -5552,9 +5552,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'DeleteV1InstancesReceiversBlockchainWalletsById',
+    'DeleteV1InstancesCustomersBlockchainWalletsById',
     {
-      name: 'DeleteV1InstancesReceiversBlockchainWalletsById',
+      name: 'DeleteV1InstancesCustomersBlockchainWalletsById',
       description: `Remove Blockchain Wallet`,
       inputSchema: {
         type: 'object',
