@@ -3002,9 +3002,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     },
   ],
   [
-    'GetV1InstancesLimitsReceiversById',
+    'GetV1InstancesLimitsCustomersById',
     {
-      name: 'GetV1InstancesLimitsReceiversById',
+      name: 'GetV1InstancesLimitsCustomersById',
       description: `Retrieve Customer Limits`,
       inputSchema: {
         type: 'object',
@@ -3015,7 +3015,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
         required: ['id', 'instance_id'],
       },
       method: 'get',
-      pathTemplate: '/v1/instances/{instance_id}/customers/{id}/limits',
+      pathTemplate: '/v1/instances/{instance_id}/limits/customers/{id}',
       executionParameters: [
         { name: 'id', in: 'path' },
         { name: 'instance_id', in: 'path' },
