@@ -2982,7 +2982,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     'DeleteV1InstancesCustomersById',
     {
       name: 'DeleteV1InstancesCustomersById',
-      description: `Delete Receiver`,
+      description: `Delete Customer`,
       inputSchema: {
         type: 'object',
         properties: {
