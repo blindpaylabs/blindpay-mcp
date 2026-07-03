@@ -44,7 +44,7 @@ interface McpToolDefinition {
  * Server configuration
  */
 export const SERVER_NAME = '@blindpay/mcp';
-export const SERVER_VERSION = '1.5.0';
+export const SERVER_VERSION = '1.5.1';
 export const API_BASE_URL = 'https://api.blindpay.com';
 
 /**
