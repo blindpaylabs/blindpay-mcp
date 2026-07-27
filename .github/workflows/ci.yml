@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, build, tool-name limit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Tool name length gate
+        run: npm run check-tool-names
+
+      - name: Verify SERVER_VERSION matches package.json
+        run: |
+          SERVER_VERSION=$(grep -oE "SERVER_VERSION = '[^']+'" src/index.ts | sed "s/.*'\(.*\)'/\1/")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$SERVER_VERSION" != "$PKG_VERSION" ]; then
+            echo "SERVER_VERSION ($SERVER_VERSION) != package.json ($PKG_VERSION)"
+            exit 1
+          fi
