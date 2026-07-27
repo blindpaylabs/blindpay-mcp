@@ -1,6 +1,6 @@
 {
   "name": "@blindpay/mcp",
-  "version": "1.5.0",
+  "version": "1.6.4",
   "description": "Official MCP Server for BlindPay API - Stablecoin API for global payments",
   "type": "module",
   "main": "build/index.js",
@@ -22,6 +22,9 @@
     "build": "tsc && chmod 755 build/index.js",
     "typecheck": "tsc --noEmit",
     "generate": "node --import tsx scripts/generate.ts",
+    "sync": "node --import tsx scripts/sync.mts",
+    "sync:check": "node --import tsx scripts/sync.mts --check",
+    "check-tool-names": "node --import tsx scripts/check-tool-names.mts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

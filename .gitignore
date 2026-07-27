@@ -3,6 +3,9 @@ node_modules
 .pnp
 .pnp.js
 
+# Spec fetched from api-sync-data at sync time, never committed
+.api-sync
+
 # Build outputs
 dist
 build
