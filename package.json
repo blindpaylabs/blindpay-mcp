@@ -1,6 +1,6 @@
 {
   "name": "@blindpay/mcp",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "description": "Official MCP Server for BlindPay API - Stablecoin API for global payments",
   "type": "module",
   "main": "build/index.js",
