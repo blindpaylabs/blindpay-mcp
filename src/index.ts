@@ -45,7 +45,7 @@ interface McpToolDefinition {
  * Server configuration
  */
 export const SERVER_NAME = '@blindpay/mcp';
-export const SERVER_VERSION = '1.6.8';
+export const SERVER_VERSION = '1.6.9';
 export const API_BASE_URL = 'https://api.blindpay.com';
 
 /**
@@ -306,7 +306,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["PostV1InstancesCustomersVirtualAccounts", {
     name: "PostV1InstancesCustomersVirtualAccounts",
     description: `Create Virtual Account`,
-    inputSchema: {"type":"object","properties":{"instance_id":{"type":"string","minLength":15,"maxLength":15},"customer_id":{"type":"string","minLength":15,"maxLength":15,"description":"Customer ID"},"Idempotency-Key":{"type":"string","maxLength":255,"description":"Optional key to safely retry this request without performing the action twice. Retrying with the same key and an identical body replays the original response; reusing a key with a different body returns an error. Keys are kept for 24 hours."},"requestBody":{"type":"object","properties":{"banking_partner":{"type":"string","enum":["jpmorgan","citi","hsbc","cfsb","portage"]},"token":{"type":"string","enum":["USDC","USDT","USDB"]},"blockchain_wallet_id":{"type":"string","minLength":15,"maxLength":15},"sole_proprietor_doc_type":{"type":["string","null"],"enum":["master_service_agreement","salary_slip","bank_statement"]},"sole_proprietor_doc_file":{"type":["string","null"],"format":"uri"}},"required":["banking_partner","token","blockchain_wallet_id"],"description":"Create a new virtual account"}},"required":["instance_id","customer_id"]},
+    inputSchema: {"type":"object","properties":{"instance_id":{"type":"string","minLength":15,"maxLength":15},"customer_id":{"type":"string","minLength":15,"maxLength":15,"description":"Customer ID"},"Idempotency-Key":{"type":"string","maxLength":255,"description":"Optional key to safely retry this request without performing the action twice. Retrying with the same key and an identical body replays the original response; reusing a key with a different body returns an error. Keys are kept for 24 hours."},"requestBody":{"type":"object","properties":{"banking_partner":{"type":"string","enum":["jpmorgan","citi","hsbc","cfsb","portage","ssb"]},"token":{"type":"string","enum":["USDC","USDT","USDB"]},"blockchain_wallet_id":{"type":"string","minLength":15,"maxLength":15},"sole_proprietor_doc_type":{"type":["string","null"],"enum":["master_service_agreement","salary_slip","bank_statement"]},"sole_proprietor_doc_file":{"type":["string","null"],"format":"uri"}},"required":["banking_partner","token","blockchain_wallet_id"],"description":"Create a new virtual account"}},"required":["instance_id","customer_id"]},
     method: "post",
     pathTemplate: "/v1/instances/{instance_id}/customers/{customer_id}/virtual-accounts",
     executionParameters: [{"name":"instance_id","in":"path"},{"name":"customer_id","in":"path"},{"name":"Idempotency-Key","in":"header"}],
