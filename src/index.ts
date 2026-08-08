@@ -45,7 +45,7 @@ interface McpToolDefinition {
  * Server configuration
  */
 export const SERVER_NAME = '@blindpay/mcp';
-export const SERVER_VERSION = '1.6.12';
+export const SERVER_VERSION = '1.7.0';
 export const API_BASE_URL = 'https://api.blindpay.com';
 
 /**
@@ -791,6 +791,16 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     pathTemplate: "/v1/upload/analyze",
     executionParameters: [{"name":"instance_id","in":"query"}],
     requestBodyContentType: "multipart/form-data",
+    securityRequirements: [{"Bearer":[]}]
+  }],
+  ["PostV1Presign", {
+    name: "PostV1Presign",
+    description: `Presign File URL`,
+    inputSchema: {"type":"object","properties":{"instance_id":{"type":"string"},"requestBody":{"type":"object","properties":{"file_url":{"type":"string","format":"uri","description":"A BlindPay file URL previously returned by POST /upload. URLs from any other host are rejected."}},"required":["file_url"],"description":"The BlindPay file URL to presign"}},"required":["instance_id","requestBody"]},
+    method: "post",
+    pathTemplate: "/v1/presign",
+    executionParameters: [{"name":"instance_id","in":"query"}],
+    requestBodyContentType: "application/json",
     securityRequirements: [{"Bearer":[]}]
   }],
   ["GetV1AvailableBankDetails", {
