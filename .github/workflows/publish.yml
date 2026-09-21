@@ -81,3 +81,21 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
           gh release create "$TAG" --title "$TAG" --generate-notes
+
+      # Official MCP Registry (registry.modelcontextprotocol.io). Lives here
+      # rather than in a tag-triggered workflow because tags pushed with
+      # GITHUB_TOKEN never trigger other workflows. The `com.blindpay/mcp`
+      # namespace is DNS-verified, so auth is the ed25519 key whose public half
+      # is in blindpay.com's TXT record (`mcp-publisher login dns` prints it).
+      # Until MCP_PRIVATE_KEY exists the step is skipped, never failed, so npm
+      # publishing does not depend on it.
+      - name: Publish to MCP Registry
+        if: steps.published.outputs.value == 'false' && env.MCP_PRIVATE_KEY != ''
+        env:
+          MCP_PRIVATE_KEY: ${{ secrets.MCP_PRIVATE_KEY }}
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          VERSION="${{ steps.version.outputs.value }}"
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
+          ./mcp-publisher login dns --domain blindpay.com --private-key "$MCP_PRIVATE_KEY"
+          ./mcp-publisher publish
