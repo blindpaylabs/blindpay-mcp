@@ -1,0 +1,48 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.blindpay/mcp",
+  "title": "BlindPay",
+  "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers for global payments.",
+  "websiteUrl": "https://blindpay.com",
+  "repository": {
+    "url": "https://github.com/blindpaylabs/blindpay-mcp",
+    "source": "github"
+  },
+  "version": "1.8.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@blindpay/mcp",
+      "version": "1.8.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "BLINDPAY_API_KEY",
+          "description": "BlindPay API key from the dashboard (API Keys tab).",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "BLINDPAY_INSTANCE_ID",
+          "description": "BlindPay instance ID (in_xxxxxxxxxxxx).",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BLINDPAY_MCP_PROFILE",
+          "description": "Tool profile: 'full' (default) or 'readonly' (GET operations only).",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "full"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.blindpay.com/mcp"
+    }
+  ]
+}
