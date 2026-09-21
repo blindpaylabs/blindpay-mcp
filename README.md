@@ -89,7 +89,14 @@ After installation, add your API key and instance ID to `~/.cursor/mcp.json`:
 
 ### Claude Code
 
-Remote server (OAuth, no API key):
+As a plugin (remote server, OAuth, no API key):
+
+```bash
+claude plugin marketplace add blindpaylabs/blindpay-mcp
+claude plugin install blindpay@blindpay
+```
+
+Or as a plain MCP server:
 
 ```bash
 claude mcp add --transport http blindpay https://mcp.blindpay.com/mcp
@@ -195,6 +202,22 @@ Enable **Developer Mode** in **Settings → Connectors → Advanced**, then **Cr
 ### Grok
 
 Grok connects to remote MCP servers as custom connectors (paid Grok tier). Go to https://grok.com/connectors → **New Connector** → **Custom**, enter `https://mcp.blindpay.com/mcp`, leave client credentials empty, and complete the BlindPay sign-in when prompted.
+
+### Gemini CLI
+
+```bash
+gemini extensions install https://github.com/blindpaylabs/blindpay-mcp
+```
+
+### Docker
+
+Local stdio server in a container (also listed in the Docker MCP Registry):
+
+```bash
+docker run -i --rm -e BLINDPAY_API_KEY=your-api-key-here -e BLINDPAY_INSTANCE_ID=your-instance-id-here ghcr.io/blindpaylabs/blindpay-mcp
+```
+
+Build it yourself with `docker build -t blindpay-mcp .` from this repo.
 
 ### Any other MCP client
 
