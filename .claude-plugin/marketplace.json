@@ -1,0 +1,28 @@
+{
+  "name": "blindpay",
+  "owner": {
+    "name": "BlindPay",
+    "email": "eric@blindpay.com"
+  },
+  "metadata": {
+    "description": "Official BlindPay plugins for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "blindpay",
+      "source": "./",
+      "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers for global payments.",
+      "version": "1.8.0",
+      "category": "finance",
+      "homepage": "https://blindpay.com/docs",
+      "repository": "https://github.com/blindpaylabs/blindpay-mcp",
+      "license": "MIT",
+      "keywords": [
+        "blindpay",
+        "stablecoin",
+        "payments",
+        "payouts"
+      ]
+    }
+  ]
+}
