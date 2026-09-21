@@ -15,6 +15,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   type Tool,
+  type ToolAnnotations,
   type CallToolResult,
   type CallToolRequest,
 } from '@modelcontextprotocol/sdk/types.js';
@@ -77,12 +78,59 @@ const securitySchemes = {
   },
 };
 
+/**
+ * Tool profiles (BLINDPAY_MCP_PROFILE):
+ *   full      every public API operation (default)
+ *   readonly  GET operations only: status, balances, quotes lookup, history.
+ *             Consumer directories (Claude, ChatGPT) reject tools that move
+ *             money, so this is the profile they get.
+ */
+type ToolProfile = 'full' | 'readonly';
+const TOOL_PROFILE: ToolProfile =
+  (process.env.BLINDPAY_MCP_PROFILE ?? 'full').toLowerCase() === 'readonly' ? 'readonly' : 'full';
+
+function isReadOnlyTool(def: McpToolDefinition): boolean {
+  return def.method.toLowerCase() === 'get';
+}
+
+function isToolInProfile(def: McpToolDefinition): boolean {
+  return TOOL_PROFILE === 'full' || isReadOnlyTool(def);
+}
+
+/** `GetV1InstancesCustomersById` -> `Get Instances Customers By Id` */
+function toolTitle(name: string): string {
+  return name
+    .replace(/^([A-Z][a-z]+)V1/, '$1')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim();
+}
+
+/**
+ * MCP tool annotations derived from the HTTP verb. Each generated tool maps
+ * to exactly one verb, so the hints are exact rather than heuristic.
+ */
+function toolAnnotations(def: McpToolDefinition): ToolAnnotations {
+  const method = def.method.toLowerCase();
+  const readOnly = method === 'get';
+  return {
+    title: toolTitle(def.name),
+    readOnlyHint: readOnly,
+    destructiveHint: method === 'delete',
+    idempotentHint: readOnly || method === 'put' || method === 'delete',
+    openWorldHint: true,
+  };
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const toolsForClient: Tool[] = Array.from(toolDefinitionMap.values()).map((def) => ({
-    name: def.name,
-    description: def.description,
-    inputSchema: def.inputSchema,
-  }));
+  const toolsForClient: Tool[] = Array.from(toolDefinitionMap.values())
+    .filter(isToolInProfile)
+    .map((def) => ({
+      name: def.name,
+      title: toolTitle(def.name),
+      description: def.description,
+      inputSchema: def.inputSchema,
+      annotations: toolAnnotations(def),
+    }));
   return { tools: toolsForClient };
 });
 
@@ -91,7 +139,7 @@ server.setRequestHandler(
   async (request: CallToolRequest): Promise<CallToolResult> => {
     const { name: toolName, arguments: toolArgs } = request.params;
     const toolDefinition = toolDefinitionMap.get(toolName);
-    if (!toolDefinition) {
+    if (!toolDefinition || !isToolInProfile(toolDefinition)) {
       console.error(`Error: Unknown tool requested: ${toolName}`);
       return { content: [{ type: 'text', text: `Error: Unknown tool requested: ${toolName}` }] };
     }
@@ -568,7 +616,7 @@ async function main() {
   try {
     const transport = new StdioServerTransport();
     await mcpServer.server.connect(transport);
-    console.error(`${SERVER_NAME} MCP Server (v${SERVER_VERSION}) running on stdio`);
+    console.error(`${SERVER_NAME} MCP Server (v${SERVER_VERSION}, profile=${TOOL_PROFILE}) running on stdio`);
   } catch (error) {
     console.error('Error during server startup:', error);
     process.exit(1);

@@ -1,8 +1,9 @@
-<h1>BlindPay MCP Server<img src="https://github.com/user-attachments/assets/c42b121d-adf1-467c-88ce-6f5be1efa93c" align="right" width="102"/></h1>
+<h1>BlindPay MCP Server<img src="./assets/logo-512.png" align="right" width="102"/></h1>
 
 [![chat on Discord](https://img.shields.io/discord/856971667393609759.svg?logo=discord)](https://discord.gg/2DFKYaxjpp)
 [![twitter](https://img.shields.io/twitter/follow/blindpay?style=social)](https://twitter.com/intent/follow?screen_name=blindpay)
 [![npm version](https://img.shields.io/npm/v/@blindpay/mcp.svg)](https://www.npmjs.com/package/@blindpay/mcp)
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_MCP-0098FF?logo=visualstudiocode)](https://vscode.dev/redirect/mcp/install?name=blindpay&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.blindpay.com%2Fmcp%22%7D)
 
 The official [Model Context Protocol](https://modelcontextprotocol.io/) server for [BlindPay](https://blindpay.com) - Stablecoin API for global payments.
 
@@ -17,7 +18,29 @@ This MCP server provides AI assistants (Cursor, Claude Code, Codex, etc.) with a
 - Configure webhooks and API keys
 - And more...
 
-## Prerequisites
+## Two ways to connect
+
+| | Remote server (recommended) | Local `npx` server |
+| --- | --- | --- |
+| URL / command | `https://mcp.blindpay.com/mcp` | `npx -y @blindpay/mcp` |
+| Auth | OAuth 2.1 sign-in with your BlindPay account (PKCE) | `BLINDPAY_API_KEY` env var |
+| Transport | Streamable HTTP | stdio |
+| Works in | Claude, ChatGPT, Cursor, VS Code, Grok, any remote-capable client | Any stdio MCP client |
+
+Both expose the same tools. The remote server needs no API key: the client opens a browser, you sign in and pick an instance, and the token is scoped to your role on it.
+
+### Tool profiles
+
+Set `BLINDPAY_MCP_PROFILE` on the local server to choose which tools are exposed:
+
+| Profile | Tools | Use when |
+| --- | --- | --- |
+| `full` (default) | Every public API operation, including payouts and transfers | Building or operating with an AI coding assistant |
+| `readonly` | `GET` operations only: status, balances, quotes, history | Consumer assistants, or any place a tool that moves money is unwanted |
+
+Every tool carries MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) derived from its HTTP verb, so clients can gate confirmations themselves.
+
+## Prerequisites (local server only)
 
 **Get your API key and Instance ID:**
 
@@ -39,7 +62,11 @@ You can check if you have Node.js installed by running `node -v`. Same for Npm, 
 
 ### Cursor
 
-One-click install:
+One-click install (remote server):
+
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=blindpay&config=eyJ1cmwiOiJodHRwczovL21jcC5ibGluZHBheS5jb20vbWNwIn0=)
+
+One-click install (local server with API key):
 
 [Add MCP to Cursor](https://cursor.com/en-US/install-mcp?name=blindpay&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBibGluZHBheS9tY3AiXSwiZW52Ijp7IkJMSU5EUEFZX0FQSV9LRVkiOiJ5b3VyLWFwaS1rZXktaGVyZSIsIkJMSU5EUEFZX0lOU1RBTkNFX0lEIjoieW91ci1pbnN0YW5jZS1pZC1oZXJlIn19Cg==)
 
@@ -62,7 +89,13 @@ After installation, add your API key and instance ID to `~/.cursor/mcp.json`:
 
 ### Claude Code
 
-Run the following command in your terminal:
+Remote server (OAuth, no API key):
+
+```bash
+claude mcp add --transport http blindpay https://mcp.blindpay.com/mcp
+```
+
+Local server with an API key:
 
 ```bash
 claude mcp add --transport stdio blindpay --env BLINDPAY_API_KEY=your-api-key-here --env BLINDPAY_INSTANCE_ID=your-instance-id-here -- npx -y @blindpay/mcp
@@ -92,7 +125,13 @@ Add to your Claude Desktop configuration file:
 
 ### Codex
 
-Run the following command in your terminal:
+Remote server (OAuth, no API key):
+
+```bash
+codex mcp add blindpay --url https://mcp.blindpay.com/mcp
+```
+
+Local server with an API key:
 
 ```bash
 codex mcp add blindpay --env BLINDPAY_API_KEY=your-api-key-here --env BLINDPAY_INSTANCE_ID=your-instance-id-here -- npx -y @blindpay/mcp
@@ -109,6 +148,58 @@ args = ["-y", "@blindpay/mcp"]
 BLINDPAY_API_KEY = "your-api-key-here"
 BLINDPAY_INSTANCE_ID = "your-instance-id-here"
 ```
+
+### VS Code
+
+Click the **Install in VS Code** badge at the top, or add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "blindpay": {
+      "type": "http",
+      "url": "https://mcp.blindpay.com/mcp"
+    }
+  }
+}
+```
+
+You can also search `@mcp blindpay` in the Extensions view once the gallery entry is live.
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "blindpay": {
+      "serverUrl": "https://mcp.blindpay.com/mcp"
+    }
+  }
+}
+```
+
+### Raycast
+
+Open the **Model Context Protocol Registry** extension in Raycast, search for `BlindPay` and click **Install Server**. Or install manually with `Manage Servers → Add Server` using the local config from the Cursor section.
+
+### Claude (claude.ai / Claude Desktop, remote)
+
+In **Settings → Connectors → Add custom connector**, paste `https://mcp.blindpay.com/mcp` and complete the sign-in. Only read-only tools are exposed to consumer directories.
+
+### ChatGPT
+
+Enable **Developer Mode** in **Settings → Connectors → Advanced**, then **Create** a connector with `https://mcp.blindpay.com/mcp` and OAuth authentication.
+
+### Grok
+
+Grok connects to remote MCP servers as custom connectors (paid Grok tier). Go to https://grok.com/connectors → **New Connector** → **Custom**, enter `https://mcp.blindpay.com/mcp`, leave client credentials empty, and complete the BlindPay sign-in when prompted.
+
+### Any other MCP client
+
+Remote: point the client at `https://mcp.blindpay.com/mcp` (Streamable HTTP, OAuth 2.1 discovery via `/.well-known/oauth-protected-resource`).
+Local: run `npx -y @blindpay/mcp` over stdio with `BLINDPAY_API_KEY` set.
 
 ## Example Prompts
 
