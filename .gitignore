@@ -65,3 +65,7 @@ web_modules/
 # OS specific
 .DS_Store
 Thumbs.db
+
+# Registry signing keys live in ~/.config/mcp-publisher, never here
+*.pem
+mcp-registry-auth
