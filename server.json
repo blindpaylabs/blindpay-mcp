@@ -8,6 +8,11 @@
     "url": "https://github.com/blindpaylabs/blindpay-mcp",
     "source": "github"
   },
+  "icons": [
+    { "src": "https://raw.githubusercontent.com/blindpaylabs/blindpay-mcp/main/assets/icon.svg", "mimeType": "image/svg+xml", "sizes": ["any"] },
+    { "src": "https://raw.githubusercontent.com/blindpaylabs/blindpay-mcp/main/assets/icon-512.png", "mimeType": "image/png", "sizes": ["512x512"], "theme": "light" },
+    { "src": "https://raw.githubusercontent.com/blindpaylabs/blindpay-mcp/main/assets/icon-light-512.png", "mimeType": "image/png", "sizes": ["512x512"], "theme": "dark" }
+  ],
   "version": "1.8.0",
   "packages": [
     {
