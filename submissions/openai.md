@@ -8,7 +8,7 @@ OpenAI's plugin guidelines list "Execution of money transfers, crypto transfers,
 
 - Server URL for every field: `https://mcp.blindpay.com/mcp/readonly`
 - Auth: OAuth 2.1 with PKCE (sign in with a BlindPay account, then pick an instance)
-- Surface: 42 GET tools, all annotated `readOnlyHint: true`. Wallet message signing, the webhook signing secret, customer detail, and ownership documents are excluded from this OpenAI-only surface. Customer lists return a limited summary, and sensitive identifiers, raw account numbers, document links, and secrets are omitted from read-only results. These filters do not alter the full `/mcp` route.
+- Surface: 44 GET tools, annotated `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: true`. Only wallet message signing and the webhook signing secret are excluded. `/mcp/readonly` is shared with every client that uses it (Claude, auth.md discovery), so this submission must match it as deployed; responses are returned in full. Rebuild the `tools` block in `chatgpt-app-submission.json` from the public server card (`https://mcp.blindpay.com/.well-known/mcp/server-card.json`: read-only tools minus those two) whenever the API changes.
 - Copy must never say the plugin sends, pays, or moves money.
 
 ## Step 1: Info
@@ -60,7 +60,8 @@ Demo recording steps (for the human, not Codex): ChatGPT Settings, then Apps, th
 
 ## Before submitting
 
-- Deploy the `/mcp/readonly` changes and rescan the live endpoint.
+- Rebuild the `tools` block from the live server card if the API shipped new GET endpoints since the last rebuild.
+- Personal data risk: OpenAI says plugins must not collect government IDs. `GetV1InstancesCustomersById`, `GetV1InstancesOnboardingOwnershipDocuments` and the bank account tools can return tax IDs, document data and account numbers. The reviewer may flag this; the fix would live in `READ_ONLY_EXCLUDED_PATHS` in blindpay-v2 (closed attempt: blindpay-v2 #2548).
 - Provide a dedicated reviewer account with a password and no MFA, plus sample data in a test instance. Never commit or send credentials in chat; enter them directly in the submission portal.
 - Record and upload the demo video to Loom or Google Drive with link access.
 - Verify that the privacy policy covers the data categories, recipients, and user controls required by OpenAI.
