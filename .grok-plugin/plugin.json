@@ -1,7 +1,7 @@
 {
   "name": "blindpay",
   "version": "1.8.0",
-  "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes, and receivers for global payments. Ships full and readonly remote HTTP endpoints.",
+  "description": "Official BlindPay MCP for Grok Build: stablecoin payouts, payins, quotes, and receivers. Ships full and readonly remote HTTP MCP over OAuth.",
   "author": {
     "name": "BlindPay",
     "email": "eric@blindpay.com",
@@ -14,7 +14,7 @@
     "blindpay",
     "blindpay mcp",
     "blindpay payments",
-    "stablecoin"
+    "blindpay stablecoin"
   ],
   "mcpServers": "./.mcp.json"
 }
