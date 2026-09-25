@@ -2,11 +2,22 @@
   "name": "blindpay",
   "displayName": "BlindPay",
   "version": "1.8.0",
-  "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers for global payments.",
-  "author": { "name": "BlindPay", "email": "eric@blindpay.com", "url": "https://blindpay.com" },
+  "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers. Remote HTTP at https://mcp.blindpay.com/mcp (full) and https://mcp.blindpay.com/mcp/readonly.",
+  "author": {
+    "name": "BlindPay",
+    "email": "eric@blindpay.com",
+    "url": "https://blindpay.com"
+  },
   "homepage": "https://blindpay.com/docs",
   "repository": "https://github.com/blindpaylabs/blindpay-mcp",
   "license": "MIT",
-  "keywords": ["blindpay", "stablecoin", "payments", "payouts", "fintech", "mcp"],
+  "keywords": [
+    "blindpay",
+    "stablecoin",
+    "payments",
+    "payouts",
+    "fintech",
+    "mcp"
+  ],
   "mcpServers": "./.mcp.json"
 }

@@ -3,6 +3,10 @@
     "blindpay": {
       "type": "http",
       "url": "https://mcp.blindpay.com/mcp"
+    },
+    "blindpay-readonly": {
+      "type": "http",
+      "url": "https://mcp.blindpay.com/mcp/readonly"
     }
   }
 }
