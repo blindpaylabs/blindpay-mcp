@@ -201,7 +201,16 @@ Enable **Developer Mode** in **Settings → Connectors → Advanced**, then **Cr
 
 ### Grok
 
-Grok connects to remote MCP servers as custom connectors (paid Grok tier). Go to https://grok.com/connectors → **New Connector** → **Custom**, enter `https://mcp.blindpay.com/mcp`, leave client credentials empty, and complete the BlindPay sign-in when prompted.
+**Grok Build plugin (recommended):** install `blindpay` from the xAI plugin marketplace. The plugin ships both remote HTTP MCP endpoints:
+
+| Server | URL | Scope |
+| --- | --- | --- |
+| `blindpay` | `https://mcp.blindpay.com/mcp` | Full (read + write) |
+| `blindpay-readonly` | `https://mcp.blindpay.com/mcp/readonly` | Read-only |
+
+Both use OAuth 2.1 (PKCE) with your BlindPay account — no API key to paste.
+
+**Custom connector (paid Grok tier):** go to https://grok.com/connectors → **New Connector** → **Custom**, enter `https://mcp.blindpay.com/mcp` (or the readonly URL), leave client credentials empty, and complete the BlindPay sign-in when prompted.
 
 ### Gemini CLI
 

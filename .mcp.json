@@ -2,7 +2,13 @@
   "mcpServers": {
     "blindpay": {
       "type": "http",
-      "url": "https://mcp.blindpay.com/mcp"
+      "url": "https://mcp.blindpay.com/mcp",
+      "note": "Official BlindPay MCP (full). Uses browser-based OAuth 2.1 on first connection; no API key required."
+    },
+    "blindpay-readonly": {
+      "type": "http",
+      "url": "https://mcp.blindpay.com/mcp/readonly",
+      "note": "Official BlindPay MCP (read-only). Uses browser-based OAuth 2.1 on first connection; exposes GET-only tools."
     }
   }
 }
