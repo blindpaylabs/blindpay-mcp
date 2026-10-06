@@ -22,7 +22,14 @@ The plugin adds one remote MCP server, `https://mcp.blindpay.com/mcp/readonly`, 
 
 ## Included skill
 
-`blindpay-payments` tells Claude how BlindPay's ids and endpoints fit together, so it picks the right tool and chains lookups (for example, rails before bank details).
+`blindpay-payments` teaches Claude how to work with BlindPay data:
+
+- Which tool answers which question, and how to chain lookups (customer before bank account, rails before bank details).
+- How to read amounts: most are integer cents, fees are in basis points, exchange rates are multiplied by 100 and wallet balances are in token units.
+- How to explain a payout's or payin's status from its tracking stages without guessing.
+- How to keep personal data and the webhook portal link out of answers unless you ask for them, and how to decline requests to move money, which this read-only plugin can't do.
+
+The skill contains instructions and a reference list of the server's tools only. It runs no code.
 
 ## Requirements
 
