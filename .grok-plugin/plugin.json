@@ -4,7 +4,7 @@
   "description": "Official BlindPay MCP for Grok Build: stablecoin payouts, payins, quotes, and receivers. Ships full and readonly remote HTTP MCP over OAuth.",
   "author": {
     "name": "BlindPay",
-    "email": "eric@blindpay.com",
+    "email": "thayto@blindpay.com",
     "url": "https://blindpay.com"
   },
   "homepage": "https://blindpay.com",

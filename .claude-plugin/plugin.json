@@ -5,7 +5,7 @@
   "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers. Remote HTTP at https://mcp.blindpay.com/mcp (full) and https://mcp.blindpay.com/mcp/readonly.",
   "author": {
     "name": "BlindPay",
-    "email": "eric@blindpay.com",
+    "email": "thayto@blindpay.com",
     "url": "https://blindpay.com"
   },
   "homepage": "https://blindpay.com/docs",
