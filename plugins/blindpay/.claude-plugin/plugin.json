@@ -1,0 +1,16 @@
+{
+  "name": "blindpay",
+  "displayName": "BlindPay",
+  "version": "1.1.0",
+  "description": "Read-only access to your BlindPay stablecoin payment operations: payouts, payins, transfers, wallets, customers, bank accounts, fees, limits and payment rails.",
+  "author": {
+    "name": "BlindPay",
+    "email": "thayto@blindpay.com",
+    "url": "https://blindpay.com"
+  },
+  "homepage": "https://blindpay.com/docs",
+  "repository": "https://github.com/blindpaylabs/blindpay-mcp",
+  "license": "MIT",
+  "keywords": ["blindpay", "stablecoin", "payments", "payouts", "finance"],
+  "mcpServers": "./.mcp.json"
+}
