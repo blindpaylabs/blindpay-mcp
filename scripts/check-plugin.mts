@@ -11,43 +11,60 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { checkPluginReadiness, type PluginFile } from './lib/plugin-check.mts';
 
+const MANIFEST = '.claude-plugin/plugin.json';
+
 const root = resolve(process.cwd(), process.argv[2] ?? 'plugins/blindpay');
 const label = relative(process.cwd(), root) || '.';
 
 // Tracked files only: the directory reads the plugin from GitHub, so untracked
 // local files (.DS_Store, build output) must not fail the check, and a
-// committed one must.
+// committed one must. A tracked file deleted locally isn't on disk to stat,
+// and won't be on GitHub once the deletion is committed, so it's skipped.
 function listTrackedFiles(): PluginFile[] {
-  const out = execFileSync('git', ['ls-files', '-z', '--', '.'], { cwd: root, encoding: 'utf8' });
+  let out = '';
+  try {
+    out = execFileSync('git', ['ls-files', '-z', '--', '.'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    // Not a git checkout (or no such folder): no tracked files, so the
+    // manifest guard below reports it.
+  }
   return out
     .split('\0')
-    .filter(Boolean)
+    .filter((path) => path !== '' && existsSync(join(root, path)))
     .map((path) => ({ path, size: statSync(join(root, path)).size }));
 }
 
-function readJson(path: string): unknown {
-  const full = join(root, path);
-  if (!existsSync(full)) return null;
-  try {
-    return JSON.parse(readFileSync(full, 'utf8'));
-  } catch (err) {
-    console.error(`${path} is not valid JSON: ${(err as Error).message}`);
-    process.exit(1);
+function parseJsonFiles(files: PluginFile[]): { jsonFiles: Record<string, unknown>; problems: string[] } {
+  const jsonFiles: Record<string, unknown> = {};
+  const problems: string[] = [];
+  for (const { path } of files.filter((f) => f.path.endsWith('.json'))) {
+    try {
+      jsonFiles[path] = JSON.parse(readFileSync(join(root, path), 'utf8'));
+    } catch (err) {
+      problems.push(`${path} is not valid JSON: ${(err as Error).message}`);
+    }
   }
+  return { jsonFiles, problems };
 }
 
-if (!existsSync(join(root, '.claude-plugin/plugin.json'))) {
-  console.error(`No .claude-plugin/plugin.json under ${root}. Refusing to pass a check that checked nothing.`);
+const files = listTrackedFiles();
+
+if (!files.some((f) => f.path === MANIFEST)) {
+  console.error(`No tracked ${MANIFEST} under ${label}. Refusing to pass a check that checked nothing.`);
   process.exit(1);
 }
 
+const { jsonFiles, problems: jsonProblems } = parseJsonFiles(files);
 const readmePath = join(root, 'README.md');
-const problems = checkPluginReadiness({
-  manifest: readJson('.claude-plugin/plugin.json'),
-  mcpConfig: readJson('.mcp.json'),
-  readme: existsSync(readmePath) ? readFileSync(readmePath, 'utf8') : null,
-  files: listTrackedFiles(),
-});
+const problems = [
+  ...jsonProblems,
+  ...checkPluginReadiness({
+    manifest: jsonFiles[MANIFEST],
+    jsonFiles,
+    readme: existsSync(readmePath) ? readFileSync(readmePath, 'utf8') : null,
+    files,
+  }),
+];
 
 if (problems.length > 0) {
   console.error(`${label} isn't ready for the Claude directory:`);

@@ -19,8 +19,8 @@ function validSnapshot(): PluginSnapshot {
       termsOfServiceUrl: 'https://blindpay.com/terms-of-service',
       mcpServers: './.mcp.json',
     },
-    mcpConfig: {
-      mcpServers: { blindpay: { type: 'http', url: 'https://mcp.blindpay.com/mcp/readonly' } },
+    jsonFiles: {
+      '.mcp.json': { mcpServers: { blindpay: { type: 'http', url: 'https://mcp.blindpay.com/mcp/readonly' } } },
     },
     readme: README,
     files: [
@@ -74,7 +74,7 @@ test('name, version, description and author must be set', () => {
 test('the full MCP server is rejected, because the directory refuses connectors that move money', () => {
   const snapshot = {
     ...validSnapshot(),
-    mcpConfig: { mcpServers: { blindpay: { type: 'http', url: 'https://mcp.blindpay.com/mcp' } } },
+    jsonFiles: { '.mcp.json': { mcpServers: { blindpay: { type: 'http', url: 'https://mcp.blindpay.com/mcp' } } } },
   };
   assert.equal(problemsMatching(snapshot, /mcp\.blindpay\.com\/mcp\b/).length, 1);
 });
@@ -82,10 +82,12 @@ test('the full MCP server is rejected, because the directory refuses connectors 
 test('a local or non-https MCP server is rejected', () => {
   const snapshot = {
     ...validSnapshot(),
-    mcpConfig: {
-      mcpServers: {
-        local: { command: 'npx', args: ['-y', '@blindpay/mcp'] },
-        plain: { type: 'http', url: 'http://mcp.blindpay.com/mcp/readonly' },
+    jsonFiles: {
+      '.mcp.json': {
+        mcpServers: {
+          local: { command: 'npx', args: ['-y', '@blindpay/mcp'] },
+          plain: { type: 'http', url: 'http://mcp.blindpay.com/mcp/readonly' },
+        },
       },
     },
   };
@@ -93,7 +95,7 @@ test('a local or non-https MCP server is rejected', () => {
 });
 
 test('a plugin with no MCP server is rejected, since it would list nothing to connect to', () => {
-  assert.equal(problemsMatching({ ...validSnapshot(), mcpConfig: { mcpServers: {} } }, /MCP server/).length, 1);
+  assert.equal(problemsMatching({ ...validSnapshot(), jsonFiles: { '.mcp.json': { mcpServers: {} } } }, /MCP server/).length, 1);
 });
 
 test('the README needs at least 40 words outside code blocks', () => {
@@ -134,4 +136,42 @@ test('binary formats the scanner cannot inspect are rejected', () => {
   const s = validSnapshot();
   const files = [...s.files, { path: 'assets/favicon.ico', size: 4000 }, { path: 'server.mcpb', size: 4000 }];
   assert.equal(problemsMatching({ ...s, files }, /favicon\.ico|server\.mcpb/).length, 2);
+});
+
+const FULL_SERVER = { blindpay: { type: 'http', url: 'https://mcp.blindpay.com/mcp' } };
+
+test('an inline mcpServers map in plugin.json is checked too, since Claude Code loads it with .mcp.json', () => {
+  assert.equal(problemsMatching(withManifest({ mcpServers: FULL_SERVER }), /mcp\.blindpay\.com\/mcp\b/).length, 1);
+});
+
+test('an mcpServers path in plugin.json is followed to the file it names', () => {
+  const s = withManifest({ mcpServers: ['./.mcp.json', './config/servers.json'] });
+  const snapshot = { ...s, jsonFiles: { ...s.jsonFiles, 'config/servers.json': { mcpServers: FULL_SERVER } } };
+  assert.equal(problemsMatching(snapshot, /mcp\.blindpay\.com\/mcp\b/).length, 1);
+});
+
+test('an mcpServers path that names a missing file is rejected', () => {
+  assert.equal(problemsMatching(withManifest({ mcpServers: './config/missing.json' }), /missing\.json/).length, 1);
+});
+
+test('an MCP bundle is rejected, because the directory cannot inspect it', () => {
+  assert.equal(problemsMatching(withManifest({ mcpServers: './server.mcpb' }), /server\.mcpb/).length, 1);
+  assert.equal(problemsMatching(withManifest({ mcpServers: 'https://example.com/server.dxt' }), /server\.dxt/).length, 1);
+});
+
+test('Windows and macOS system files are rejected wherever they sit', () => {
+  const s = validSnapshot();
+  const files = [
+    ...s.files,
+    { path: 'Thumbs.db', size: 10 },
+    { path: 'assets/desktop.ini', size: 10 },
+    { path: '__MACOSX/assets/._logo.png', size: 10 },
+  ];
+  assert.equal(problemsMatching({ ...s, files }, /Thumbs\.db|desktop\.ini|__MACOSX/).length, 3);
+});
+
+test('more than 512 files is rejected', () => {
+  const s = validSnapshot();
+  const extra = Array.from({ length: 512 }, (_, i) => ({ path: `skills/extra/${i}.md`, size: 10 }));
+  assert.equal(problemsMatching({ ...s, files: [...s.files, ...extra] }, /512/).length, 1);
 });

@@ -29,9 +29,16 @@ export interface PluginFile {
 
 export interface PluginSnapshot {
   manifest: unknown;
-  mcpConfig: unknown;
+  /** Every tracked .json file, parsed, keyed by its path relative to the plugin root. */
+  jsonFiles: Record<string, unknown>;
   readme: string | null;
   files: PluginFile[];
+}
+
+interface McpServerSource {
+  /** Where the servers were declared, for error messages. */
+  origin: string;
+  servers: unknown;
 }
 
 type Json = Record<string, unknown>;
@@ -93,23 +100,53 @@ function checkListingUrls(manifest: Json): string[] {
   );
 }
 
-function checkMcpServers(mcpConfig: unknown): string[] {
-  const servers = Object.entries(asObject(asObject(mcpConfig).mcpServers));
-  if (servers.length === 0) return ['.mcp.json declares no MCP server, so the plugin has nothing to connect to.'];
+function isMcpBundle(path: string): boolean {
+  return /\.(mcpb|dxt)$/i.test(path);
+}
 
-  return servers.flatMap(([name, raw]) => {
-    const server = asObject(raw);
-    if (server.type !== 'http' || !isHttpsUrl(server.url)) {
-      return [`MCP server "${name}" must be a remote "http" server with an https:// URL.`];
-    }
-    if (!DIRECTORY_SAFE_MCP_URLS.includes(server.url as string)) {
-      return [
-        `MCP server "${name}" points at ${server.url as string}. The Claude directory refuses connectors that move money, ` +
-          `so the plugin may only use ${DIRECTORY_SAFE_MCP_URLS.join(', ')}.`,
-      ];
-    }
-    return [];
-  });
+// Claude Code loads .mcp.json and then whatever plugin.json's mcpServers
+// declares (a .json path, an inline map, a bundle, or an array of those), so a
+// full-server entry can hide in any of them.
+function resolveManifestEntry(entry: unknown, jsonFiles: Record<string, unknown>): McpServerSource | string {
+  if (typeof entry !== 'string') return { origin: 'plugin.json mcpServers', servers: entry };
+  if (isMcpBundle(entry)) return `plugin.json mcpServers names the MCP bundle "${entry}", which the directory can't inspect; declare servers with "url" instead.`;
+  const path = entry.replace(/^\.\//, '');
+  if (!(path in jsonFiles)) return `plugin.json mcpServers names "${entry}", which isn't a tracked JSON file in the plugin folder.`;
+  return { origin: path, servers: asObject(jsonFiles[path]).mcpServers };
+}
+
+function collectMcpSources(manifest: Json, jsonFiles: Record<string, unknown>): { sources: McpServerSource[]; problems: string[] } {
+  const declared = manifest.mcpServers === undefined ? [] : [manifest.mcpServers].flat();
+  const isRootConfig = (e: unknown) => typeof e === 'string' && e.replace(/^\.\//, '') === '.mcp.json';
+  const resolved = declared.filter((e) => !isRootConfig(e)).map((e) => resolveManifestEntry(e, jsonFiles));
+  const rootConfig: McpServerSource[] = '.mcp.json' in jsonFiles ? [{ origin: '.mcp.json', servers: asObject(jsonFiles['.mcp.json']).mcpServers }] : [];
+  return {
+    sources: [...rootConfig, ...resolved.filter((r): r is McpServerSource => typeof r !== 'string')],
+    problems: resolved.filter((r): r is string => typeof r === 'string'),
+  };
+}
+
+function checkServer(name: string, raw: unknown, origin: string): string[] {
+  const server = asObject(raw);
+  if (server.type !== 'http' || !isHttpsUrl(server.url)) {
+    return [`MCP server "${name}" in ${origin} must be a remote "http" server with an https:// URL.`];
+  }
+  if (!DIRECTORY_SAFE_MCP_URLS.includes(server.url as string)) {
+    return [
+      `MCP server "${name}" in ${origin} points at ${server.url as string}. The Claude directory refuses connectors that move money, ` +
+        `so the plugin may only use ${DIRECTORY_SAFE_MCP_URLS.join(', ')}.`,
+    ];
+  }
+  return [];
+}
+
+function checkMcpServers(manifest: Json, jsonFiles: Record<string, unknown>): string[] {
+  const { sources, problems } = collectMcpSources(manifest, jsonFiles);
+  const servers = sources.flatMap(({ origin, servers }) => Object.entries(asObject(servers)).map(([name, raw]) => ({ name, raw, origin })));
+  if (servers.length === 0 && problems.length === 0) {
+    return ['The plugin declares no MCP server, so it has nothing to connect to.'];
+  }
+  return [...problems, ...servers.flatMap(({ name, raw, origin }) => checkServer(name, raw, origin))];
 }
 
 function countReadmeWords(readme: string): number {
@@ -163,7 +200,7 @@ export function checkPluginReadiness(snapshot: PluginSnapshot): string[] {
     ...checkManifestBasics(manifest),
     ...checkIcon(manifest, filePaths),
     ...checkListingUrls(manifest),
-    ...checkMcpServers(snapshot.mcpConfig),
+    ...checkMcpServers(manifest, snapshot.jsonFiles),
     ...checkReadmeAndLicense(snapshot, manifest, filePaths),
     ...checkFiles(snapshot.files),
   ];
