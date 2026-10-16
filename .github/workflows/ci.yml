@@ -11,7 +11,9 @@ permissions:
 
 jobs:
   check:
-    name: Typecheck, build, tool-name limit, plugin checks
+    # Keep this name: branch protection on main requires a check with exactly
+    # this name, so renaming the job blocks every PR.
+    name: Typecheck, build, tool-name limit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
