@@ -9,6 +9,8 @@ npm run generate         # Raw openapi-mcp-generator dump to /tmp/mcp-generated 
 npm run sync              # Full deterministic pipeline: writes src/index.ts + package.json
 npm run sync:check        # Same pipeline, but diffs against committed files instead of writing (exit 2 on diff)
 npm run check-tool-names  # Static gate: fails if any committed tool name exceeds 52 chars
+npm run check-plugin      # Static gate: fails if plugins/blindpay breaks a Claude directory rule
+npm test                  # Unit tests for scripts/lib (node:test via tsx)
 ```
 
 ## How updates work
@@ -58,6 +60,14 @@ scripts/sync.mts            # The deterministic build: generator -> extract
 scripts/check-tool-names.mts  # Standalone 52-char gate, used by ci.yml too.
 scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, semver
                             # bump) used by both scripts above.
+scripts/check-plugin.mts    # Claude directory gate for plugins/blindpay,
+                            # used by ci.yml. Reads tracked files only.
+scripts/lib/plugin-check.mts  # Pure rules behind check-plugin, with
+                            # plugin-check.test.mts next to it.
+plugins/blindpay/           # The Claude directory plugin (read-only MCP
+                            # server + blindpay-payments skill). Listed from
+                            # main; raise "version" in its plugin.json on
+                            # every change.
 scripts/generate.ts         # Legacy raw generator dump for manual debugging
                             # only; not used by the pipeline anymore.
 ```
@@ -124,3 +134,22 @@ path in the API spec, not another shortening rule here.
 committed one: **minor** if any name was added or removed, **patch**
 otherwise. Never major, that's a deliberate human decision made directly in
 `package.json` outside the sync pipeline.
+
+## Claude directory plugin and connector
+
+`plugins/blindpay` is submitted to Anthropic's directory as a plugin bundle,
+and `https://mcp.blindpay.com/mcp/readonly` as an MCP connector. Two rules
+the directory enforces and this repo can break:
+
+- **Read-only only.** The directory refuses connectors that transfer money,
+  so the plugin's `.mcp.json` may only point at `/mcp/readonly`. The full
+  `/mcp` server stays in the root `.mcp.json` for Claude Code users and is
+  never submitted to the directory.
+- **Listing fields live in `plugin.json`.** The listing reads `icon`,
+  `documentationUrl`, `supportUrl`, `privacyPolicyUrl` and
+  `termsOfServiceUrl` from `plugins/blindpay/.claude-plugin/plugin.json`.
+  Claude Code ignores them, so dropping one raises no error anywhere except
+  `npm run check-plugin`. The org plugin library doesn't render `icon` yet
+  (anthropics/claude-code#100818).
+
+Listing copy for both submissions is in `assets/LISTING.md`.

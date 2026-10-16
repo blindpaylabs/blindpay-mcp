@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   check:
-    name: Typecheck, build, tool-name limit
+    name: Typecheck, build, tool-name limit, plugin checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +31,12 @@ jobs:
 
       - name: Tool name length gate
         run: npm run check-tool-names
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Claude directory plugin gate
+        run: npm run check-plugin
 
       - name: Verify SERVER_VERSION matches package.json
         run: |
