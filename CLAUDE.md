@@ -10,6 +10,7 @@ npm run sync              # Full deterministic pipeline: writes src/index.ts + p
 npm run sync:check        # Same pipeline, but diffs against committed files instead of writing (exit 2 on diff)
 npm run check-tool-names  # Static gate: fails if any committed tool name exceeds 52 chars
 npm run check-plugin      # Static gate: fails if plugins/blindpay breaks a Claude directory rule
+npm run check-connector   # Live check: walks Claude's OAuth sign-in against mcp.blindpay.com/mcp/readonly (not in CI)
 npm test                  # Unit tests for scripts/lib (node:test via tsx)
 ```
 
@@ -64,6 +65,11 @@ scripts/check-plugin.mts    # Claude directory gate for plugins/blindpay,
                             # used by ci.yml. Reads tracked files only.
 scripts/lib/plugin-check.mts  # Pure rules behind check-plugin, with
                             # plugin-check.test.mts next to it.
+scripts/check-connector.mts # Live sign-in check for the directory
+                            # connector. Stops at the BlindPay sign-in page,
+                            # so it creates no grants or tokens.
+scripts/lib/connector-check.mts  # Pure rules behind check-connector
+                            # (Claude's OAuth requirements), with tests.
 plugins/blindpay/           # The Claude directory plugin (read-only MCP
                             # server + blindpay-payments skill). Listed from
                             # main; raise "version" in its plugin.json on
@@ -153,3 +159,11 @@ the directory enforces and this repo can break:
   (anthropics/claude-code#100818).
 
 Listing copy for both submissions is in `assets/LISTING.md`.
+
+Run `npm run check-connector` before a directory submission and after any
+auth change in blindpay-v2 or Clerk. It checks what Claude's OAuth client
+needs and the MCP spec doesn't spell out: a 401 with a `resource_metadata`
+pointer, `resource` equal to the URL exactly, CIMD with public-client auth
+(Clerk has no DCR endpoint), S256, `invalid_grant` on a bad refresh token, and
+that both claude.ai's and Claude Code's client metadata documents reach the
+sign-in page while an undeclared redirect is refused.

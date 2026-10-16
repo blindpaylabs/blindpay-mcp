@@ -27,6 +27,7 @@
     "sync:check": "node --import tsx scripts/sync.mts --check",
     "check-tool-names": "node --import tsx scripts/check-tool-names.mts",
     "check-plugin": "node --import tsx scripts/check-plugin.mts",
+    "check-connector": "node --import tsx scripts/check-connector.mts",
     "test": "node --import tsx --test scripts/lib/*.test.mts",
     "prepublishOnly": "npm run build"
   },
