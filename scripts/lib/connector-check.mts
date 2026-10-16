@@ -6,6 +6,8 @@
  * scripts/check-connector.mts makes the requests and passes what it saw.
  */
 
+import { asObject, asStrings } from './json.mts';
+
 export const REQUEST_TIMEOUT_MS = 10_000;
 
 /** Where an /authorize request ended up once its redirects were followed. */
@@ -36,16 +38,6 @@ export interface ConnectorObservations {
   bogusRefresh: { status: number; error: unknown } | null;
   /** null when discovery failed before /authorize could be found. */
   authorize: AuthorizeObservations | null;
-}
-
-type Json = Record<string, unknown>;
-
-function asObject(value: unknown): Json {
-  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Json) : {};
-}
-
-function asStrings(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
 export function parseResourceMetadataUrl(wwwAuthenticate: string | null): string | null {
@@ -93,8 +85,9 @@ function checkAuthServer({ authServerMetadata }: ConnectorObservations): string[
   if (!asStrings(metadata.code_challenge_methods_supported).includes('S256')) {
     problems.push('The authorization server must advertise S256 in code_challenge_methods_supported.');
   }
-  const cimd = metadata.client_id_metadata_document_supported === true && asStrings(metadata.token_endpoint_auth_methods_supported).includes('none');
-  if (!cimd && typeof metadata.registration_endpoint !== 'string') {
+  const acceptsClientMetadataDocuments =
+    metadata.client_id_metadata_document_supported === true && asStrings(metadata.token_endpoint_auth_methods_supported).includes('none');
+  if (!acceptsClientMetadataDocuments && typeof metadata.registration_endpoint !== 'string') {
     problems.push('Claude has no way to register: advertise CIMD with "none" in token_endpoint_auth_methods_supported, or expose a registration_endpoint.');
   }
   return problems;
@@ -103,6 +96,14 @@ function checkAuthServer({ authServerMetadata }: ConnectorObservations): string[
 function checkLatency({ slowestRequestMs }: ConnectorObservations): string[] {
   if (slowestRequestMs < REQUEST_TIMEOUT_MS) return [];
   return [`The slowest discovery or token request took ${slowestRequestMs} ms; Claude gives up after ${REQUEST_TIMEOUT_MS / 1000} s.`];
+}
+
+// The token and authorize rules can only run once discovery yields both
+// endpoints. Say so instead of passing, or a broken discovery chain would
+// print OK without ever trying to sign in.
+function checkSignInWasChecked({ bogusRefresh, authorize }: ConnectorObservations): string[] {
+  if (bogusRefresh !== null && authorize !== null) return [];
+  return ['Sign-in was not checked: the authorization server metadata names no authorization_endpoint or token_endpoint.'];
 }
 
 function checkTokenEndpoint({ bogusRefresh }: ConnectorObservations): string[] {
@@ -137,6 +138,7 @@ export function evaluateConnector(observations: ConnectorObservations): string[]
     ...checkResourceMetadata(observations),
     ...checkAuthServer(observations),
     ...checkLatency(observations),
+    ...checkSignInWasChecked(observations),
     ...checkTokenEndpoint(observations),
     ...checkAuthorize(observations),
   ];

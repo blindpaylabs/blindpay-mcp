@@ -175,3 +175,9 @@ test('more than 512 files is rejected', () => {
   const extra = Array.from({ length: 512 }, (_, i) => ({ path: `skills/extra/${i}.md`, size: 10 }));
   assert.equal(problemsMatching({ ...s, files: [...s.files, ...extra] }, /512/).length, 1);
 });
+
+test('a JSON file named by mcpServers may hold a bare server map, and that map is checked too', () => {
+  const s = withManifest({ mcpServers: './config/servers.json' });
+  const snapshot = { ...s, jsonFiles: { ...s.jsonFiles, 'config/servers.json': FULL_SERVER } };
+  assert.equal(problemsMatching(snapshot, /mcp\.blindpay\.com\/mcp\b/).length, 1);
+});

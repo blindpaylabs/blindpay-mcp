@@ -7,6 +7,8 @@
  * scripts/check-plugin.mts reads the folder and calls checkPluginReadiness.
  */
 
+import { asObject, type Json } from './json.mts';
+
 export const DIRECTORY_SAFE_MCP_URLS: readonly string[] = ['https://mcp.blindpay.com/mcp/readonly'];
 
 export const LISTING_URL_FIELDS = ['documentationUrl', 'supportUrl', 'privacyPolicyUrl', 'termsOfServiceUrl'] as const;
@@ -39,12 +41,6 @@ interface McpServerSource {
   /** Where the servers were declared, for error messages. */
   origin: string;
   servers: unknown;
-}
-
-type Json = Record<string, unknown>;
-
-function asObject(value: unknown): Json {
-  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Json) : {};
 }
 
 function nonEmptyString(value: unknown): value is string {
@@ -112,7 +108,10 @@ function resolveManifestEntry(entry: unknown, jsonFiles: Record<string, unknown>
   if (isMcpBundle(entry)) return `plugin.json mcpServers names the MCP bundle "${entry}", which the directory can't inspect; declare servers with "url" instead.`;
   const path = entry.replace(/^\.\//, '');
   if (!(path in jsonFiles)) return `plugin.json mcpServers names "${entry}", which isn't a tracked JSON file in the plugin folder.`;
-  return { origin: path, servers: asObject(jsonFiles[path]).mcpServers };
+  // A named file may wrap its servers in "mcpServers" like .mcp.json, or be
+  // the bare map itself; check whichever it is so neither can hide a server.
+  const file = asObject(jsonFiles[path]);
+  return { origin: path, servers: file.mcpServers ?? file };
 }
 
 function collectMcpSources(manifest: Json, jsonFiles: Record<string, unknown>): { sources: McpServerSource[]; problems: string[] } {

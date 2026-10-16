@@ -150,9 +150,14 @@ test('every undeclared redirect must be refused, and never followed back to the 
   assert.equal(problemsMatching({ ...o, authorize: followed }, /redirect/).length, 1);
 });
 
-test('when discovery fails, the discovery problems are reported and the later checks are skipped', () => {
+test('when discovery fails, its problems are reported and the skipped sign-in checks are named, not passed', () => {
   const o = { ...validObservations(), resourceMetadata: null, authServerMetadata: null, bogusRefresh: null, authorize: null };
   const problems = evaluateConnector(o);
   assert.ok(problems.some((p) => /resource/.test(p)));
   assert.ok(!problems.some((p) => /invalid_grant|claude\.ai|Claude Code/.test(p)));
+  assert.equal(problems.filter((p) => /not checked/.test(p)).length, 1);
+});
+
+test('metadata that passes every rule but names no authorize or token endpoint still fails', () => {
+  assert.equal(problemsMatching({ ...validObservations(), bogusRefresh: null, authorize: null }, /not checked/).length, 1);
 });
