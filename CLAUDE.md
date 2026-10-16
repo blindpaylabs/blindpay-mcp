@@ -9,6 +9,9 @@ npm run generate         # Raw openapi-mcp-generator dump to /tmp/mcp-generated 
 npm run sync              # Full deterministic pipeline: writes src/index.ts + package.json
 npm run sync:check        # Same pipeline, but diffs against committed files instead of writing (exit 2 on diff)
 npm run check-tool-names  # Static gate: fails if any committed tool name exceeds 52 chars
+npm run check-plugin      # Static gate: fails if plugins/blindpay breaks a Claude directory rule
+npm run check-connector   # Live check: walks Claude's OAuth sign-in against mcp.blindpay.com/mcp/readonly (not in CI)
+npm test                  # Unit tests for scripts/lib (node:test via tsx)
 ```
 
 ## How updates work
@@ -58,6 +61,19 @@ scripts/sync.mts            # The deterministic build: generator -> extract
 scripts/check-tool-names.mts  # Standalone 52-char gate, used by ci.yml too.
 scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, semver
                             # bump) used by both scripts above.
+scripts/check-plugin.mts    # Claude directory gate for plugins/blindpay,
+                            # used by ci.yml. Reads tracked files only.
+scripts/lib/plugin-check.mts  # Pure rules behind check-plugin, with
+                            # plugin-check.test.mts next to it.
+scripts/check-connector.mts # Live sign-in check for the directory
+                            # connector. Stops at the BlindPay sign-in page,
+                            # so it creates no grants or tokens.
+scripts/lib/connector-check.mts  # Pure rules behind check-connector
+                            # (Claude's OAuth requirements), with tests.
+plugins/blindpay/           # The Claude directory plugin (read-only MCP
+                            # server + blindpay-payments skill). Listed from
+                            # main; raise "version" in its plugin.json on
+                            # every change.
 scripts/generate.ts         # Legacy raw generator dump for manual debugging
                             # only; not used by the pipeline anymore.
 ```
@@ -124,3 +140,30 @@ path in the API spec, not another shortening rule here.
 committed one: **minor** if any name was added or removed, **patch**
 otherwise. Never major, that's a deliberate human decision made directly in
 `package.json` outside the sync pipeline.
+
+## Claude directory plugin and connector
+
+`plugins/blindpay` is submitted to Anthropic's directory as a plugin bundle,
+and `https://mcp.blindpay.com/mcp/readonly` as an MCP connector. Two rules
+the directory enforces and this repo can break:
+
+- **Read-only only.** The directory refuses connectors that transfer money,
+  so the plugin's `.mcp.json` may only point at `/mcp/readonly`. The full
+  `/mcp` server stays in the root `.mcp.json` for Claude Code users and is
+  never submitted to the directory.
+- **Listing fields live in `plugin.json`.** The listing reads `icon`,
+  `documentationUrl`, `supportUrl`, `privacyPolicyUrl` and
+  `termsOfServiceUrl` from `plugins/blindpay/.claude-plugin/plugin.json`.
+  Claude Code ignores them, so dropping one raises no error anywhere except
+  `npm run check-plugin`. The org plugin library doesn't render `icon` yet
+  (anthropics/claude-code#100818).
+
+Listing copy for both submissions is in `assets/LISTING.md`.
+
+Run `npm run check-connector` before a directory submission and after any
+auth change in blindpay-v2 or Clerk. It checks what Claude's OAuth client
+needs and the MCP spec doesn't spell out: a 401 with a `resource_metadata`
+pointer, `resource` equal to the URL exactly, CIMD with public-client auth
+(Clerk has no DCR endpoint), S256, `invalid_grant` on a bad refresh token, and
+that both claude.ai's and Claude Code's client metadata documents reach the
+sign-in page while an undeclared redirect is refused.

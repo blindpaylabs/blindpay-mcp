@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   check:
+    # Keep this name: branch protection on main requires a check with exactly
+    # this name, so renaming the job blocks every PR.
     name: Typecheck, build, tool-name limit
     runs-on: ubuntu-latest
     steps:
@@ -31,6 +33,12 @@ jobs:
 
       - name: Tool name length gate
         run: npm run check-tool-names
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Claude directory plugin gate
+        run: npm run check-plugin
 
       - name: Verify SERVER_VERSION matches package.json
         run: |
