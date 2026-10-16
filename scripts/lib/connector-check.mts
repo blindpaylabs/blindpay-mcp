@@ -6,9 +6,23 @@
  * scripts/check-connector.mts makes the requests and passes what it saw.
  */
 
-export const DISCOVERY_TIMEOUT_MS = 10_000;
-// Leave headroom under Claude's hard limit, so a slow day doesn't fail sign-in.
-const DISCOVERY_BUDGET_MS = DISCOVERY_TIMEOUT_MS / 2;
+export const REQUEST_TIMEOUT_MS = 10_000;
+
+/** Where an /authorize request ended up once its redirects were followed. */
+export type AuthorizeOutcome = 'sign-in' | 'refused' | 'sent-to-redirect';
+
+export interface AuthorizeHop {
+  url: string;
+  status: number;
+}
+
+export interface AuthorizeObservations {
+  claudeAi: AuthorizeOutcome;
+  /** One outcome per loopback form and port probed. */
+  claudeCode: AuthorizeOutcome[];
+  /** One outcome per redirect the client never declared; each must be refused. */
+  undeclaredRedirects: AuthorizeOutcome[];
+}
 
 export interface ConnectorObservations {
   serverUrl: string;
@@ -16,11 +30,12 @@ export interface ConnectorObservations {
   challenge: { status: number; wwwAuthenticate: string | null };
   resourceMetadata: unknown;
   authServerMetadata: unknown;
-  slowestDiscoveryMs: number;
-  /** The token endpoint's answer to a form-encoded refresh with a made-up token. */
-  bogusRefresh: { status: number; error: unknown };
-  /** Final HTTP status after following /authorize redirects for each client. */
-  authorize: { claudeAi: number; claudeCode: number; mismatchedRedirect: number };
+  /** Slowest of the discovery and token requests Claude makes. */
+  slowestRequestMs: number;
+  /** The token endpoint's answer to a form-encoded refresh with a made-up token; null when discovery failed first. */
+  bogusRefresh: { status: number; error: unknown } | null;
+  /** null when discovery failed before /authorize could be found. */
+  authorize: AuthorizeObservations | null;
 }
 
 type Json = Record<string, unknown>;
@@ -33,13 +48,20 @@ function asStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
-function isSuccess(status: number): boolean {
-  return status >= 200 && status < 300;
-}
-
 export function parseResourceMetadataUrl(wwwAuthenticate: string | null): string | null {
   const match = wwwAuthenticate?.match(/resource_metadata="([^"]+)"/);
   return match ? match[1] : null;
+}
+
+// A 200 alone doesn't prove the sign-in page rendered: an authorization
+// server can serve its error page with 200, or bounce the browser to the
+// redirect URI with ?error=. Only a clean 2xx that never did either counts.
+export function classifyAuthorizeChain(hops: AuthorizeHop[], redirectUri: string): AuthorizeOutcome {
+  if (hops.some((hop) => hop.url.startsWith(redirectUri))) return 'sent-to-redirect';
+  const last = hops[hops.length - 1];
+  const sawError = hops.some((hop) => new URL(hop.url).searchParams.has('error'));
+  if (last === undefined || sawError || last.status < 200 || last.status >= 300) return 'refused';
+  return 'sign-in';
 }
 
 function checkChallenge({ challenge }: ConnectorObservations): string[] {
@@ -78,13 +100,13 @@ function checkAuthServer({ authServerMetadata }: ConnectorObservations): string[
   return problems;
 }
 
-function checkLatency({ slowestDiscoveryMs }: ConnectorObservations): string[] {
-  if (slowestDiscoveryMs <= DISCOVERY_BUDGET_MS) return [];
-  return [`Slowest discovery request took ${slowestDiscoveryMs} ms; Claude gives up after ${DISCOVERY_TIMEOUT_MS / 1000} s, so keep it under ${DISCOVERY_BUDGET_MS / 1000} s.`];
+function checkLatency({ slowestRequestMs }: ConnectorObservations): string[] {
+  if (slowestRequestMs < REQUEST_TIMEOUT_MS) return [];
+  return [`The slowest discovery or token request took ${slowestRequestMs} ms; Claude gives up after ${REQUEST_TIMEOUT_MS / 1000} s.`];
 }
 
 function checkTokenEndpoint({ bogusRefresh }: ConnectorObservations): string[] {
-  if (bogusRefresh.status === 400 && bogusRefresh.error === 'invalid_grant') return [];
+  if (bogusRefresh === null || (bogusRefresh.status === 400 && bogusRefresh.error === 'invalid_grant')) return [];
   return [
     `A form-encoded refresh with an invalid token got ${bogusRefresh.status} ${JSON.stringify(bogusRefresh.error)}; ` +
       'Claude needs 400 invalid_grant to know the user must sign in again.',
@@ -92,15 +114,18 @@ function checkTokenEndpoint({ bogusRefresh }: ConnectorObservations): string[] {
 }
 
 function checkAuthorize({ authorize }: ConnectorObservations): string[] {
+  if (authorize === null) return [];
   const problems: string[] = [];
-  if (!isSuccess(authorize.claudeAi)) {
-    problems.push(`Sign-in from claude.ai ended with ${authorize.claudeAi}; the authorization server must accept its client metadata document and callback.`);
+  if (authorize.claudeAi !== 'sign-in') {
+    problems.push(`Sign-in from claude.ai ended as "${authorize.claudeAi}"; accept its client metadata document and https://claude.ai/api/mcp/auth_callback.`);
   }
-  if (!isSuccess(authorize.claudeCode)) {
-    problems.push(`Sign-in from Claude Code ended with ${authorize.claudeCode}; accept loopback redirects on any port.`);
+  const claudeCodeMisses = authorize.claudeCode.filter((outcome) => outcome !== 'sign-in');
+  if (claudeCodeMisses.length > 0) {
+    problems.push(`Sign-in from Claude Code failed for ${claudeCodeMisses.length} of ${authorize.claudeCode.length} loopback redirects; match localhost and 127.0.0.1 with any port.`);
   }
-  if (isSuccess(authorize.mismatchedRedirect)) {
-    problems.push('The authorization server accepted a redirect the client never declared; it must check redirect_uri against the client metadata.');
+  const accepted = authorize.undeclaredRedirects.filter((outcome) => outcome !== 'refused');
+  if (accepted.length > 0) {
+    problems.push(`The authorization server let ${accepted.length} undeclared redirect(s) through (${accepted.join(', ')}); it must check redirect_uri against the client metadata.`);
   }
   return problems;
 }

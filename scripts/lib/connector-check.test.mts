@@ -1,9 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateConnector, parseResourceMetadataUrl, type ConnectorObservations } from './connector-check.mts';
+import {
+  classifyAuthorizeChain,
+  evaluateConnector,
+  parseResourceMetadataUrl,
+  type AuthorizeObservations,
+  type ConnectorObservations,
+} from './connector-check.mts';
 
 const SERVER = 'https://mcp.blindpay.com/mcp/readonly';
 const ISSUER = 'https://clerk.blindpay.com';
+const CALLBACK = 'https://claude.ai/api/mcp/auth_callback';
+
+const AUTHORIZE: AuthorizeObservations = {
+  claudeAi: 'sign-in',
+  claudeCode: ['sign-in', 'sign-in', 'sign-in'],
+  undeclaredRedirects: ['refused', 'refused', 'refused'],
+};
 
 function validObservations(): ConnectorObservations {
   return {
@@ -19,9 +32,9 @@ function validObservations(): ConnectorObservations {
       token_endpoint_auth_methods_supported: ['client_secret_basic', 'none'],
       client_id_metadata_document_supported: true,
     },
-    slowestDiscoveryMs: 950,
+    slowestRequestMs: 950,
     bogusRefresh: { status: 400, error: 'invalid_grant' },
-    authorize: { claudeAi: 200, claudeCode: 200, mismatchedRedirect: 400 },
+    authorize: AUTHORIZE,
   };
 }
 
@@ -36,6 +49,39 @@ test('parseResourceMetadataUrl reads the quoted resource_metadata parameter', ()
   );
   assert.equal(parseResourceMetadataUrl('Bearer realm="x"'), null);
   assert.equal(parseResourceMetadataUrl(null), null);
+});
+
+test('a chain that ends on a 2xx page with no error is the sign-in page', () => {
+  const hops = [
+    { url: `${ISSUER}/oauth/authorize?client_id=x`, status: 302 },
+    { url: `${ISSUER}/oauth/authorize/continue?client_id=x`, status: 302 },
+    { url: 'https://app.blindpay.com/sign-in/?redirect_url=x', status: 200 },
+  ];
+  assert.equal(classifyAuthorizeChain(hops, CALLBACK), 'sign-in');
+});
+
+test('a chain that ends on a 4xx or 5xx is a refusal', () => {
+  const hops = [
+    { url: `${ISSUER}/oauth/authorize?client_id=x`, status: 302 },
+    { url: `${ISSUER}/oauth/authorize/continue?client_id=x`, status: 400 },
+  ];
+  assert.equal(classifyAuthorizeChain(hops, CALLBACK), 'refused');
+});
+
+test('an error page served with 200 is a refusal, not the sign-in page', () => {
+  const hops = [
+    { url: `${ISSUER}/oauth/authorize?client_id=x`, status: 302 },
+    { url: `${ISSUER}/oauth/error?error=invalid_request`, status: 200 },
+  ];
+  assert.equal(classifyAuthorizeChain(hops, CALLBACK), 'refused');
+});
+
+test('a chain that sends the browser to the redirect URI is reported as such', () => {
+  const hops = [
+    { url: `${ISSUER}/oauth/authorize?client_id=x`, status: 302 },
+    { url: `${CALLBACK}?error=invalid_request&state=s`, status: 200 },
+  ];
+  assert.equal(classifyAuthorizeChain(hops, CALLBACK), 'sent-to-redirect');
 });
 
 test('a connector that meets every rule has no problems', () => {
@@ -79,8 +125,9 @@ test('Claude needs CIMD with public-client auth, or a DCR endpoint, to register 
   assert.deepEqual(evaluateConnector({ ...o, authServerMetadata: withDcr }), []);
 });
 
-test('discovery must answer well inside the 10 second limit', () => {
-  assert.equal(problemsMatching({ ...validObservations(), slowestDiscoveryMs: 9500 }, /10 s|second/).length, 1);
+test("every request must answer inside Claude's 10 second limit", () => {
+  assert.deepEqual(evaluateConnector({ ...validObservations(), slowestRequestMs: 9500 }), []);
+  assert.equal(problemsMatching({ ...validObservations(), slowestRequestMs: 10_500 }, /10 s/).length, 1);
 });
 
 test('an invalid refresh token must get invalid_grant from a form-encoded token request', () => {
@@ -89,9 +136,23 @@ test('an invalid refresh token must get invalid_grant from a form-encoded token 
   assert.equal(problemsMatching({ ...o, bogusRefresh: { status: 400, error: 'invalid_request' } }, /invalid_grant/).length, 1);
 });
 
-test('sign-in must start for claude.ai and Claude Code, and refuse a redirect the client never declared', () => {
+test('sign-in must start for claude.ai and for Claude Code on every loopback form', () => {
   const o = validObservations();
-  assert.equal(problemsMatching({ ...o, authorize: { ...o.authorize, claudeAi: 400 } }, /claude\.ai/).length, 1);
-  assert.equal(problemsMatching({ ...o, authorize: { ...o.authorize, claudeCode: 400 } }, /Claude Code/).length, 1);
-  assert.equal(problemsMatching({ ...o, authorize: { ...o.authorize, mismatchedRedirect: 200 } }, /redirect/).length, 1);
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, claudeAi: 'refused' } }, /claude\.ai/).length, 1);
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, claudeCode: ['sign-in', 'refused', 'sign-in'] } }, /Claude Code/).length, 1);
+});
+
+test('every undeclared redirect must be refused, and never followed back to the client', () => {
+  const o = validObservations();
+  const accepted: AuthorizeObservations = { ...AUTHORIZE, undeclaredRedirects: ['refused', 'sign-in', 'refused'] };
+  assert.equal(problemsMatching({ ...o, authorize: accepted }, /redirect/).length, 1);
+  const followed: AuthorizeObservations = { ...AUTHORIZE, undeclaredRedirects: ['sent-to-redirect', 'refused', 'refused'] };
+  assert.equal(problemsMatching({ ...o, authorize: followed }, /redirect/).length, 1);
+});
+
+test('when discovery fails, the discovery problems are reported and the later checks are skipped', () => {
+  const o = { ...validObservations(), resourceMetadata: null, authServerMetadata: null, bogusRefresh: null, authorize: null };
+  const problems = evaluateConnector(o);
+  assert.ok(problems.some((p) => /resource/.test(p)));
+  assert.ok(!problems.some((p) => /invalid_grant|claude\.ai|Claude Code/.test(p)));
 });
