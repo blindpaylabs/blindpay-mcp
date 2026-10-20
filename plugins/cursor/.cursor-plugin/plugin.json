@@ -1,0 +1,22 @@
+{
+  "name": "blindpay",
+  "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers for global payments. Connects to the hosted server with a BlindPay API key.",
+  "author": {
+    "name": "BlindPay",
+    "email": "thayto@blindpay.com"
+  },
+  "homepage": "https://blindpay.com/docs",
+  "repository": "https://github.com/blindpaylabs/blindpay-mcp",
+  "license": "MIT",
+  "keywords": ["blindpay", "stablecoin", "payments", "payouts", "payins", "fintech", "mcp"],
+  "logo": "assets/logo.png",
+  "variables": {
+    "type": "object",
+    "properties": {
+      "BLINDPAY_API_KEY": {
+        "type": "string",
+        "description": "BlindPay API key from the dashboard (instance, then API Keys). The key decides which instance the tools act on."
+      }
+    }
+  }
+}

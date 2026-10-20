@@ -1,0 +1,18 @@
+{
+  "name": "blindpay",
+  "owner": {
+    "name": "BlindPay",
+    "email": "thayto@blindpay.com"
+  },
+  "metadata": {
+    "description": "Official BlindPay plugins for Cursor"
+  },
+  "plugins": [
+    {
+      "name": "blindpay",
+      "source": "plugins/cursor",
+      "category": "finance",
+      "tags": ["payments", "stablecoin", "fintech"]
+    }
+  ]
+}
