@@ -4,7 +4,7 @@ Instructions for an AI agent (Cline and similar) setting up the official BlindPa
 
 ## 1. Get the user's API key
 
-Ask the user for a BlindPay API key. They create one in the dashboard at https://app.blindpay.com: open the instance, then **API Keys**. The key decides which instance the tools act on. Never invent a key or put a placeholder in a working config.
+Ask the user for a BlindPay API key. They create one in the dashboard at https://app.blindpay.com: open the instance, then **API Keys**. The key decides which instance the tools act on. Never invent a key: replace every `<...>` placeholder below with the user's own values.
 
 Also ask for the instance ID (`in_` followed by 12 characters) if the user wants it set; it is optional.
 

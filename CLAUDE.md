@@ -10,6 +10,7 @@ npm run sync              # Full deterministic pipeline: writes src/index.ts + p
 npm run sync:check        # Same pipeline, but diffs against committed files instead of writing (exit 2 on diff)
 npm run check-tool-names  # Static gate: fails if any committed tool name exceeds 52 chars
 npm run check-plugin      # Static gate: fails if plugins/blindpay breaks a Claude directory rule
+npm run check-openai-plugin  # Static gate: fails if plugins/openai breaks an OpenAI submission limit or leaves /mcp/readonly
 npm run check-connector   # Live check: walks Claude's OAuth sign-in against mcp.blindpay.com/mcp/readonly (not in CI)
 npm test                  # Unit tests for scripts/lib (node:test via tsx)
 npm run pack:openai       # ZIP for the ChatGPT/Codex plugin directory, in build-plugins/
@@ -79,6 +80,9 @@ plugins/openai/             # ChatGPT/Codex plugin (Agent Plugins format,
                             # read-only server). npm run pack:openai zips it
                             # with the blindpay-payments skill; raise
                             # "version" on every resubmission.
+scripts/check-openai-plugin.mts  # OpenAI submission gate for plugins/openai,
+                            # used by ci.yml. Rules (with tests) live in
+                            # scripts/lib/openai-plugin-check.mts.
 plugins/cursor/             # Cursor Marketplace plugin, listed through
                             # .cursor-plugin/marketplace.json. API key auth:
                             # Cursor's OAuth needs DCR, which Clerk doesn't offer.

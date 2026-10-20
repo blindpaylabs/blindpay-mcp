@@ -27,6 +27,7 @@
     "sync:check": "node --import tsx scripts/sync.mts --check",
     "check-tool-names": "node --import tsx scripts/check-tool-names.mts",
     "check-plugin": "node --import tsx scripts/check-plugin.mts",
+    "check-openai-plugin": "node --import tsx scripts/check-openai-plugin.mts",
     "check-connector": "node --import tsx scripts/check-connector.mts",
     "test": "node --import tsx --test scripts/lib/*.test.mts",
     "pack:openai": "rm -rf build-plugins && mkdir -p build-plugins/openai && cp -R plugins/openai/. build-plugins/openai/ && cp -R plugins/blindpay/skills build-plugins/openai/ && cd build-plugins/openai && zip -qrX ../blindpay-openai.zip . -x '.*' '*/.*'",
