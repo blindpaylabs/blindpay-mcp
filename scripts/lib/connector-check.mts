@@ -22,6 +22,12 @@ export interface AuthorizeObservations {
   claudeAi: AuthorizeOutcome;
   /** One outcome per loopback form and port probed. */
   claudeCode: AuthorizeOutcome[];
+  /**
+   * VS Code's client metadata document, one outcome per redirect it declares.
+   * Not a Claude requirement: VS Code is the client the GitHub MCP Registry
+   * gallery installs into, and it signs in with CIMD too.
+   */
+  vscode: AuthorizeOutcome[];
   /** One outcome per redirect the client never declared; each must be refused. */
   undeclaredRedirects: AuthorizeOutcome[];
 }
@@ -123,6 +129,10 @@ function checkAuthorize({ authorize }: ConnectorObservations): string[] {
   const claudeCodeMisses = authorize.claudeCode.filter((outcome) => outcome !== 'sign-in');
   if (claudeCodeMisses.length > 0) {
     problems.push(`Sign-in from Claude Code failed for ${claudeCodeMisses.length} of ${authorize.claudeCode.length} loopback redirects; match localhost and 127.0.0.1 with any port.`);
+  }
+  const vscodeMisses = authorize.vscode.filter((outcome) => outcome !== 'sign-in');
+  if (vscodeMisses.length > 0) {
+    problems.push(`Sign-in from VS Code failed for ${vscodeMisses.length} of ${authorize.vscode.length} redirects; accept its client metadata document and the redirects it declares.`);
   }
   const accepted = authorize.undeclaredRedirects.filter((outcome) => outcome !== 'refused');
   if (accepted.length > 0) {

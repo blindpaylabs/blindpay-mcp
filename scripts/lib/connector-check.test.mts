@@ -15,6 +15,7 @@ const CALLBACK = 'https://claude.ai/api/mcp/auth_callback';
 const AUTHORIZE: AuthorizeObservations = {
   claudeAi: 'sign-in',
   claudeCode: ['sign-in', 'sign-in', 'sign-in'],
+  vscode: ['sign-in', 'sign-in'],
   undeclaredRedirects: ['refused', 'refused', 'refused'],
 };
 
@@ -142,6 +143,12 @@ test('sign-in must start for claude.ai and for Claude Code on every loopback for
   assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, claudeCode: ['sign-in', 'refused', 'sign-in'] } }, /Claude Code/).length, 1);
 });
 
+test('sign-in must start for VS Code on both its loopback and its web redirect', () => {
+  const o = validObservations();
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, vscode: ['sign-in', 'refused'] } }, /VS Code/).length, 1);
+  assert.equal(problemsMatching(o, /VS Code/).length, 0);
+});
+
 test('every undeclared redirect must be refused, and never followed back to the client', () => {
   const o = validObservations();
   const accepted: AuthorizeObservations = { ...AUTHORIZE, undeclaredRedirects: ['refused', 'sign-in', 'refused'] };
@@ -154,7 +161,7 @@ test('when discovery fails, its problems are reported and the skipped sign-in ch
   const o = { ...validObservations(), resourceMetadata: null, authServerMetadata: null, bogusRefresh: null, authorize: null };
   const problems = evaluateConnector(o);
   assert.ok(problems.some((p) => /resource/.test(p)));
-  assert.ok(!problems.some((p) => /invalid_grant|claude\.ai|Claude Code/.test(p)));
+  assert.ok(!problems.some((p) => /invalid_grant|claude\.ai|Claude Code|VS Code/.test(p)));
   assert.equal(problems.filter((p) => /not checked/.test(p)).length, 1);
 });
 
