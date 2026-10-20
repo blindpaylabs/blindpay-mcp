@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "blindpay": {
+      "url": "https://mcp.blindpay.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${BLINDPAY_API_KEY}"
+      }
+    },
+    "blindpay-readonly": {
+      "url": "https://mcp.blindpay.com/mcp/readonly",
+      "headers": {
+        "Authorization": "Bearer ${BLINDPAY_API_KEY}"
+      }
+    }
+  }
+}

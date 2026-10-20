@@ -40,6 +40,9 @@ jobs:
       - name: Claude directory plugin gate
         run: npm run check-plugin
 
+      - name: OpenAI plugin gate
+        run: npm run check-openai-plugin
+
       - name: Verify SERVER_VERSION matches package.json
         run: |
           SERVER_VERSION=$(grep -oE "SERVER_VERSION = '[^']+'" src/index.ts | sed "s/.*'\(.*\)'/\1/")

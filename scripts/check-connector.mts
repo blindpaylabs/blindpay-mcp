@@ -5,7 +5,8 @@
  * anything Claude's OAuth client would reject. It stops at the BlindPay
  * sign-in page, so it creates no grants, tokens or clients. Not in ci.yml:
  * it depends on production being up; run it before a directory submission
- * and after auth changes.
+ * and after auth changes. VS Code is probed too, since the GitHub MCP
+ * Registry gallery installs into it.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import {
@@ -26,6 +27,7 @@ interface OAuthClient {
 const CLAUDE_AI = 'https://claude.ai/oauth/mcp-oauth-client-metadata';
 const CLAUDE_AI_CALLBACK = 'https://claude.ai/api/mcp/auth_callback';
 const CLAUDE_CODE = 'https://claude.ai/oauth/claude-code-client-metadata';
+const VSCODE = 'https://vscode.dev/oauth/client-metadata.json';
 
 const CLAUDE_AI_SIGN_IN: OAuthClient = { clientId: CLAUDE_AI, redirectUri: CLAUDE_AI_CALLBACK };
 // Claude Code picks a fresh port per session, so probe both loopback hosts it
@@ -34,6 +36,12 @@ const CLAUDE_CODE_SIGN_INS: OAuthClient[] = [
   { clientId: CLAUDE_CODE, redirectUri: 'http://localhost:3118/callback' },
   { clientId: CLAUDE_CODE, redirectUri: 'http://127.0.0.1:49152/callback' },
   { clientId: CLAUDE_CODE, redirectUri: 'http://localhost:61000/callback' },
+];
+// Both redirects VS Code's metadata document declares: the desktop loopback
+// (fixed port) and vscode.dev for the web build.
+const VSCODE_SIGN_INS: OAuthClient[] = [
+  { clientId: VSCODE, redirectUri: 'http://127.0.0.1:33418/' },
+  { clientId: VSCODE, redirectUri: 'https://vscode.dev/redirect' },
 ];
 // Each pairs a client with a redirect its metadata document doesn't list.
 const UNDECLARED_REDIRECTS: OAuthClient[] = [
@@ -134,6 +142,7 @@ async function observeAuthorize(endpoint: string, resource: string): Promise<Aut
   return {
     claudeAi: await authorizeOutcome(endpoint, CLAUDE_AI_SIGN_IN, resource),
     claudeCode: await outcomes(CLAUDE_CODE_SIGN_INS),
+    vscode: await outcomes(VSCODE_SIGN_INS),
     undeclaredRedirects: await outcomes(UNDECLARED_REDIRECTS),
   };
 }

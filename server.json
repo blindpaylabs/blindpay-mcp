@@ -48,6 +48,10 @@
     {
       "type": "streamable-http",
       "url": "https://mcp.blindpay.com/mcp"
+    },
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.blindpay.com/mcp/readonly"
     }
   ]
 }

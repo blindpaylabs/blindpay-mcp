@@ -1,5 +1,7 @@
 # OpenAI Plugins Directory submission: BlindPay
 
+The directory now takes a ZIP, shared by ChatGPT and Codex. `npm run pack:openai` builds `build-plugins/blindpay-openai.zip` from `plugins/openai` (manifest, listing copy, test cases, icons) plus the `blindpay-payments` skill. Upload that. The demo recording URL, reviewer credentials and domain verification are entered in the portal, not the ZIP. `chatgpt-app-submission.json` is the earlier Apps SDK form, kept for its per-tool justifications.
+
 Brief for Codex. Use these values to run the `$chatgpt-app-submission` skill (OpenAI Developers plugin) in this repo and produce `chatgpt-app-submission.json`. Use the values below exactly as written. If a field is not covered here, stop and ask; do not make one up.
 
 ## Hard rule: submit the read-only server

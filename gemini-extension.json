@@ -5,6 +5,9 @@
   "mcpServers": {
     "blindpay": {
       "httpUrl": "https://mcp.blindpay.com/mcp"
+    },
+    "blindpay-readonly": {
+      "httpUrl": "https://mcp.blindpay.com/mcp/readonly"
     }
   }
 }

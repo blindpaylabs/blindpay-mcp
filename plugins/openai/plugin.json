@@ -1,0 +1,89 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "blindpay",
+  "version": "1.0.0",
+  "description": "Read-only access to your BlindPay stablecoin payment operations: payouts, payins, transfers, wallets, customers, bank accounts, fees, limits and payment rails.",
+  "author": {
+    "name": "BlindPay",
+    "url": "https://blindpay.com"
+  },
+  "homepage": "https://blindpay.com/docs",
+  "repository": "https://github.com/blindpaylabs/blindpay-mcp",
+  "license": "MIT",
+  "keywords": ["blindpay", "stablecoin", "payments", "payouts", "payins", "fintech"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "BlindPay",
+        "shortDescription": "Track stablecoin payments",
+        "longDescription": "Check your BlindPay stablecoin payment operations without leaving ChatGPT. Look up payouts, payins and transfers and their status, see wallet balances and yield, review customers, bank accounts and virtual accounts, and check fees, limits and the payment rails available in each country.\n\nSign in with your BlindPay account and pick the instance you want to query. The plugin only reads data: it cannot send payouts, move funds or change any setting. It is made for teams already using BlindPay who want quick answers about their payment activity.",
+        "developerName": "BlindPay",
+        "category": "Finance",
+        "websiteURL": "https://blindpay.com",
+        "supportURL": "https://blindpay.com/contact",
+        "privacyPolicyURL": "https://blindpay.com/privacy-policy",
+        "termsOfServiceURL": "https://blindpay.com/terms-of-service",
+        "defaultPrompt": [
+          "List my last 5 payouts with their status and amount.",
+          "Which payment rails can I use to pay out to Brazil?",
+          "What is the wallet balance of my first customer?"
+        ],
+        "brandColor": "#09090B",
+        "brandColorDark": "#F7F8F8",
+        "composerIcon": "./assets/composer-icon.png",
+        "logo": "./assets/logo.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "List recent payouts with status and amount.",
+              "prompt": "List my last 5 payouts with their status and amount.",
+              "tools_triggered": ["GetV1InstancesPayouts"],
+              "expected_behavior": "Returns up to five recent payouts with status and amount, amounts converted from cents."
+            },
+            {
+              "description": "Find the first customer and summarize wallet balances and yield.",
+              "prompt": "What is the balance and yield status of each wallet for my first customer?",
+              "tools_triggered": ["GetV1InstancesCustomers", "GetV1InstancesCustomersWallets", "GetV1InstancesCustomersWalletsBalance", "GetV1InstancesCustomersWalletsYield"],
+              "expected_behavior": "Lists customers to identify the first one, then returns each wallet's balance and yield status."
+            },
+            {
+              "description": "List supported payout rails for Brazil.",
+              "prompt": "Which payment rails can I use to pay out to Brazil?",
+              "tools_triggered": ["GetV1AvailableRails"],
+              "expected_behavior": "Returns the available payout rails for Brazil."
+            },
+            {
+              "description": "Review recent payins and their statuses.",
+              "prompt": "Show my last 5 payins with status and amount.",
+              "tools_triggered": ["GetV1InstancesPayins"],
+              "expected_behavior": "Returns recent payins with status and amount."
+            },
+            {
+              "description": "Review recent transfer history.",
+              "prompt": "Show my most recent transfers with their status and amount.",
+              "tools_triggered": ["GetV1InstancesTransfers"],
+              "expected_behavior": "Returns recent transfers with status and amount."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Do not initiate a payout: no tool can move money, so the plugin declines and points to the BlindPay dashboard.",
+              "prompt": "Send 100 USDC to my first receiver."
+            },
+            {
+              "description": "Do not update customer records: the plugin can look up customers but cannot change them.",
+              "prompt": "Change my first customer's address to 123 Main Street."
+            },
+            {
+              "description": "Do not answer unrelated requests: weather is outside the plugin's workflows, so it is not invoked.",
+              "prompt": "What is the weather in São Paulo today?"
+            }
+          ]
+        },
+        "commerce": false
+      }
+    }
+  }
+}

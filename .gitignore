@@ -69,3 +69,4 @@ Thumbs.db
 # Registry signing keys live in ~/.config/mcp-publisher, never here
 *.pem
 mcp-registry-auth
+build-plugins
