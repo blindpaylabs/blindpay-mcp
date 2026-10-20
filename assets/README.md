@@ -30,6 +30,9 @@ Colors: `#09090B` (dark) and `#F7F8F8` (light). The mark comes from the dashboar
 | Smithery | Server icon | `icon-square-512.png` |
 | Glama, PulseMCP, mcp.so | Claimed listing logo | `icon-512.png` |
 | Cursor directory | Logo | `icon-512.png` |
+| Cursor Marketplace plugin | `logo` in `plugins/cursor/.cursor-plugin/plugin.json` | `plugins/cursor/assets/logo.png` (a copy of `icon-512.png`) |
+| ChatGPT/Codex plugin ZIP | `logo`, `composerIcon` in `plugins/openai/plugin.json` | `plugins/openai/assets/logo.png` (`icon-square-1024.png`), `composer-icon.png` (`icon-square-128.png`) |
+| Cline marketplace | Logo in the submission issue | `icon-400.png` (400×400) |
 | Docker MCP registry | `about.icon` | `icon-512.png` raw GitHub URL |
 | Claude directory plugin listing | `icon` in `plugins/blindpay/.claude-plugin/plugin.json` | `plugins/blindpay/assets/logo.png` (a copy of `logo-512.png`; the file must live inside the plugin folder) |
 | Claude organization plugin library | `icon` in `plugin.json` is not rendered yet ([anthropics/claude-code#100818](https://github.com/anthropics/claude-code/issues/100818)) | n/a |

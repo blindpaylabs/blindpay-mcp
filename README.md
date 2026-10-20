@@ -62,9 +62,11 @@ You can check if you have Node.js installed by running `node -v`. Same for Npm, 
 
 ### Cursor
 
-One-click install (remote server):
+One-click install (remote server with API key):
 
-[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=blindpay&config=eyJ1cmwiOiJodHRwczovL21jcC5ibGluZHBheS5jb20vbWNwIn0=)
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=blindpay&config=eyJ1cmwiOiJodHRwczovL21jcC5ibGluZHBheS5jb20vbWNwIiwiaGVhZGVycyI6eyJBdXRob3JpemF0aW9uIjoiQmVhcmVyIFlPVVJfQkxJTkRQQVlfQVBJX0tFWSJ9fQ==)
+
+Replace `YOUR_BLINDPAY_API_KEY` in `~/.cursor/mcp.json` with a key from the dashboard. Cursor's OAuth sign-in needs dynamic client registration, which BlindPay's sign-in doesn't offer, so the remote server takes the API key as a bearer token instead. The Cursor plugin in [`plugins/cursor`](./plugins/cursor) sets this up with both endpoints.
 
 One-click install (local server with API key):
 
@@ -212,6 +214,10 @@ Both use OAuth 2.1 (PKCE) with your BlindPay account — no API key to paste.
 
 **Custom connector (paid Grok tier):** go to https://grok.com/connectors → **New Connector** → **Custom**, enter `https://mcp.blindpay.com/mcp` (or the readonly URL), leave client credentials empty, and complete the BlindPay sign-in when prompted.
 
+### Cline
+
+Ask Cline to install the BlindPay MCP server from `https://github.com/blindpaylabs/blindpay-mcp`. It follows [llms-install.md](./llms-install.md).
+
 ### Gemini CLI
 
 ```bash
@@ -220,13 +226,12 @@ gemini extensions install https://github.com/blindpaylabs/blindpay-mcp
 
 ### Docker
 
-Local stdio server in a container (also listed in the Docker MCP Registry):
+Local stdio server in a container, built from this repo:
 
 ```bash
-docker run -i --rm -e BLINDPAY_API_KEY=your-api-key-here -e BLINDPAY_INSTANCE_ID=your-instance-id-here ghcr.io/blindpaylabs/blindpay-mcp
+docker build -t blindpay-mcp .
+docker run -i --rm -e BLINDPAY_API_KEY=your-api-key-here -e BLINDPAY_INSTANCE_ID=your-instance-id-here blindpay-mcp
 ```
-
-Build it yourself with `docker build -t blindpay-mcp .` from this repo.
 
 ### Any other MCP client
 
