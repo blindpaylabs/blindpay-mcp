@@ -16,8 +16,9 @@
  *          proofs and can be wired into CI.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import {
   extractToolMapEntries,
   extractToolNames,
@@ -26,6 +27,7 @@ import {
   decideVersionBump,
   bumpSemver,
 } from './lib/tool-map.mts';
+import { requireBodiesWithRequiredFields, webhookEventsFromOpenApi } from './lib/openapi.mts';
 
 interface Args {
   spec: string;
@@ -77,7 +79,19 @@ function main(): void {
     );
   }
 
-  runGenerator(args.spec, args.outDir);
+  const spec = JSON.parse(readFileSync(args.spec, 'utf8'));
+  // The generator reads a copy with `requestBody.required` set the way the
+  // hosted server derives it (see lib/openapi.mts); the spec itself is untouched.
+  const prepared = requireBodiesWithRequiredFields(spec);
+  const specDir = mkdtempSync(join(tmpdir(), 'blindpay-mcp-spec-'));
+  const preparedSpecPath = join(specDir, 'openapi.json');
+  writeFileSync(preparedSpecPath, JSON.stringify(prepared.doc));
+  try {
+    runGenerator(preparedSpecPath, args.outDir);
+  } finally {
+    rmSync(specDir, { recursive: true, force: true });
+  }
+  const webhookEvents = webhookEventsFromOpenApi(spec);
 
   const generatedPath = resolve(args.outDir, 'src/index.ts');
   if (!existsSync(generatedPath)) {
@@ -118,35 +132,44 @@ function main(): void {
   if (!template.includes('__SERVER_VERSION__')) {
     fail('Template is missing the __SERVER_VERSION__ marker.');
   }
+  if (!template.includes('/* __WEBHOOK_EVENTS__ */')) {
+    fail('Template is missing the /* __WEBHOOK_EVENTS__ */ marker.');
+  }
 
   const committedIndexPath = resolve(repoRoot, 'src/index.ts');
+  const committedIndex = existsSync(committedIndexPath) ? readFileSync(committedIndexPath, 'utf8') : '';
   let oldNames: string[] = [];
-  if (existsSync(committedIndexPath)) {
-    const committed = readFileSync(committedIndexPath, 'utf8');
+  if (committedIndex) {
     try {
-      oldNames = extractToolNames(extractToolMapEntries(committed));
+      oldNames = extractToolNames(extractToolMapEntries(committedIndex));
     } catch {
       // Committed file doesn't have a recognizable map yet (e.g. first run) — treat as empty.
       oldNames = [];
     }
   }
 
-  const bump = decideVersionBump(oldNames, newNames);
+  // Function replacers: a `$` in the spliced text must not be read as a
+  // replacement pattern.
+  const buildIndex = (version: string) =>
+    template
+      .replace('/* __TOOL_DEFINITIONS__ */', () => renamed!.text.trim())
+      .replace('/* __WEBHOOK_EVENTS__ */', () => webhookEvents.map((event) => JSON.stringify(event)).join(',\n  '))
+      .replace('__SERVER_VERSION__', version);
 
   const packageJsonPath = resolve(repoRoot, 'package.json');
   const packageJsonSource = readFileSync(packageJsonPath, 'utf8');
   const versionMatch = /"version":\s*"(\d+\.\d+\.\d+)"/.exec(packageJsonSource);
   if (!versionMatch) fail(`Could not find a plain-semver "version" field in ${packageJsonPath}.`);
   const oldVersion = versionMatch![1];
+  // An unchanged build keeps its version, so re-syncing the same spec is a no-op.
+  const bump = buildIndex(oldVersion) === committedIndex ? 'none' : decideVersionBump(oldNames, newNames);
   const newVersion = bumpSemver(oldVersion, bump);
   const newPackageJson = packageJsonSource.replace(
     /"version":\s*"\d+\.\d+\.\d+"/,
     `"version": "${newVersion}"`,
   );
 
-  const builtIndex = template
-    .replace('/* __TOOL_DEFINITIONS__ */', renamed!.text.trim())
-    .replace('__SERVER_VERSION__', newVersion);
+  const builtIndex = buildIndex(newVersion);
 
   const added = newNames.filter((n) => !oldNames.includes(n));
   const removed = oldNames.filter((n) => !newNames.includes(n));
@@ -159,13 +182,12 @@ function main(): void {
     added,
     removed,
     renames: renamed!.renames,
+    requiredBodies: prepared.changed.length,
+    webhookEvents: webhookEvents.length,
   };
 
   if (args.check) {
-    const committed = existsSync(committedIndexPath)
-      ? readFileSync(committedIndexPath, 'utf8')
-      : '';
-    const indexDiffers = committed !== builtIndex;
+    const indexDiffers = committedIndex !== builtIndex;
     const versionDiffers = packageJsonSource !== newPackageJson;
     console.log(JSON.stringify(summary, null, 2));
     if (indexDiffers || versionDiffers) {
