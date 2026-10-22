@@ -1,8 +1,14 @@
 # BlindPay read-only tools
 
-All 41 tools the read-only BlindPay MCP server exposes, grouped by what they answer. "Needs" lists the required arguments; "Filters" lists the optional ones.
+All 43 tools the read-only BlindPay MCP server exposes, grouped by what they answer. "Needs" lists the required arguments; "Filters" lists the optional ones.
 
 "Paging" means `limit`, `offset` (a string from 0, 10, 50, 100, 200, 500, 1000), `starting_after` and `ending_before`; those lists return `{ data, pagination }`. Lists without paging return a plain array.
+
+## Instance
+
+| Tool | Needs | Filters | Returns |
+| --- | --- | --- | --- |
+| `GetV1InstancesById` | | | The connected instance: `id`, `name`, `type` (`development` simulates settlement, `production` moves real funds) and `onboarding_step` (`completed` once it can transact) |
 
 ## Payouts (stablecoin → bank account)
 
@@ -58,6 +64,7 @@ All 41 tools the read-only BlindPay MCP server exposes, grouped by what they ans
 | `GetV1InstancesCustomersWallets` | `customer_id` | | BlindPay-managed wallets (`bl_`) with address, network and `yield_status` |
 | `GetV1InstancesCustomersWalletsById` | `customer_id`, `id` | | One wallet |
 | `GetV1InstancesCustomersWalletsBalance` | `customer_id`, `id` (`bl_`) | | Balance per token (USDC, USDT, USDB) in **decimal token units**, not cents |
+| `GetV1InstancesCustomersWalletsDeposits` | `customer_id`, `id` (`bl_`) | `token`, `status` (`processing`, `completed`, `on_hold`, `refunded`), `limit` (5, 10, 50, 100, 200), `starting_after`, `ending_before` | Incoming stablecoin deposits to the wallet, newest first |
 | `GetV1InstancesCustomersWalletsYield` | `customer_id`, `id` | | Yield status, `fee_bps` and positions |
 | `GetV1InstancesCustomersWalletsYieldHistory` | `customer_id`, `id` | `token`, `from`, `to` (UTC dates `YYYY-MM-DD`, at most 366 days; defaults to the last 30) | Daily yield history |
 | `GetV1InstancesCustomersWalletsYieldTransactions` | `customer_id`, `id` | `token`, paging | Yield accrual transactions |

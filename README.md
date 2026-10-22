@@ -27,7 +27,7 @@ This MCP server provides AI assistants (Cursor, Claude Code, Codex, etc.) with a
 | Transport | Streamable HTTP | stdio |
 | Works in | Claude, ChatGPT, Cursor, VS Code, Grok, any remote-capable client | Any stdio MCP client |
 
-Both expose the same tools. The remote server needs no API key: the client opens a browser, you sign in and pick an instance, and the token is scoped to your role on it.
+Both expose the same tools, the same server instructions (call order, units, test amounts) and the same webhook event resources at `blindpay://webhooks/events`. The remote server needs no API key: the client opens a browser, you sign in and pick an instance, and the token is scoped to your role on it.
 
 ### Tool profiles
 
@@ -36,7 +36,7 @@ Set `BLINDPAY_MCP_PROFILE` on the local server to choose which tools are exposed
 | Profile | Tools | Use when |
 | --- | --- | --- |
 | `full` (default) | Every public API operation, including payouts and transfers | Building or operating with an AI coding assistant |
-| `readonly` | `GET` operations only: status, balances, quotes, history | Consumer assistants, or any place a tool that moves money is unwanted |
+| `readonly` | `GET` operations only: status, balances, quotes, history. Leaves out the wallet sign-message and webhook secret tools, like `/mcp/readonly` | Consumer assistants, or any place a tool that moves money is unwanted |
 
 Every tool carries MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) derived from its HTTP verb, so clients can gate confirmations themselves.
 
@@ -255,7 +255,7 @@ Once configured, you can ask your AI assistant to interact with BlindPay:
 ```
 
 > [!TIP]
-> You can specify `BLINDPAY_INSTANCE_ID` in your initial prompt or add it as an environment variable. However, some AI tools may not detect it automatically, so you may need to include it explicitly in your prompt.
+> Set `BLINDPAY_INSTANCE_ID` and every instance-scoped tool fills in the instance id for you, the way the remote server does; a value the model sends is ignored. Without it, give the instance id in your prompt.
 
 ## Documentation
 
