@@ -156,12 +156,15 @@ with it. When one of these changes there, change it here too:
 - **Required bodies.** Hosted requires `requestBody` whenever its schema has
   required fields; `openapi-mcp-generator` only honors the spec flag, so
   `sync.mts` sets the flag first (`requireBodiesWithRequiredFields`).
-- **Instructions.** `SERVER_INSTRUCTIONS` is hosted `instructions.ts` word
-  for word, except the sentence about the instance id.
+- **Instructions.** `SERVER_INSTRUCTIONS` and, for the readonly profile,
+  `READ_ONLY_SERVER_INSTRUCTIONS` are hosted `instructions.ts` word for word,
+  except the sentence about the instance id. The read-only text names no tool
+  the read-only surface lacks.
 - **Webhook resources.** Same names, URIs and text as hosted
   `webhook-resources.ts`; the data comes from the spec's `webhooks` section.
 - **Readonly profile.** GET tools minus `READ_ONLY_EXCLUDED_PATHS`, the
-  same list `/mcp/readonly` uses.
+  same list `/mcp/readonly` uses, and a top-level `trace_id` dropped from JSON
+  responses, as `/mcp/readonly` does.
 - **Tool results.** `HTTP <status>` then the full body, `isError` on 4xx/5xx.
 
 Deliberate differences:
