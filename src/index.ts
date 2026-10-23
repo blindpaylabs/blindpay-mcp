@@ -51,8 +51,9 @@ export const API_BASE_URL = 'https://api.blindpay.com';
 
 /**
  * Set to the instance the API key belongs to (`in_...`). When set, it fills
- * in the instance path parameter of every instance-scoped tool, the way the
- * hosted server fills it in from the signed-in connection.
+ * in the instance parameter of every instance-scoped tool (see
+ * instanceParamName), the way the hosted server fills it in from the
+ * signed-in connection.
  */
 const ENV_INSTANCE_ID = process.env.BLINDPAY_INSTANCE_ID || undefined;
 
@@ -1091,10 +1092,11 @@ function toolAnnotations(def: McpToolDefinition): ToolAnnotations {
 }
 
 /**
- * The path parameter carrying the instance id: the first path param on a
- * `/v1/instances/{...}` or `/v1/e/instances/{...}` route. Usually
- * `instance_id`, `id` on `/v1/instances/{id}` and its members routes. Port of
- * `instanceParamNameFor` in the hosted tool-gen.ts.
+ * The parameter carrying the instance id: the first path param on a
+ * `/v1/instances/{...}` or `/v1/e/instances/{...}` route (usually
+ * `instance_id`, `id` on `/v1/instances/{id}` and its members routes), as
+ * `instanceParamNameFor` in the hosted tool-gen.ts finds it. Elsewhere, an
+ * `instance_id` query param, which the hosted server doesn't fill in.
  */
 function instanceParamName(def: McpToolDefinition): string | undefined {
   if (/^\/v1(?:\/e)?\/instances\/\{/.test(def.pathTemplate)) {
@@ -1723,12 +1725,15 @@ main().catch((error) => {
   process.exit(1);
 });
 
-/** Pretty-prints a body that parses as JSON, whatever its content-type. */
-// The API always answers in JSON, so a non-JSON body comes from something in
-// front of it, such as a load balancer's HTML 502 page. Keep enough to tell
-// what happened without filling the model's context with markup.
 const MAX_NON_JSON_BODY_CHARS = 2000;
 
+/**
+ * Pretty-prints a body that parses as JSON, whatever its content-type. The
+ * API answers in JSON, so any other body comes from something in front of it,
+ * such as a load balancer's HTML 502 page: keep the first
+ * MAX_NON_JSON_BODY_CHARS characters, enough to tell what happened without
+ * filling the model's context with markup.
+ */
 function jsonOrText(text: string): string {
   try {
     return JSON.stringify(JSON.parse(text), null, 2);
