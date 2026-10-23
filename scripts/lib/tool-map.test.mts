@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { routeKey } from './openapi.mts';
+import { routeKey, type InputSchema } from './openapi.mts';
 import { bumpSemver, decideVersionBump, replaceInputSchemas } from './tool-map.mts';
 
 test('bumpSemver applies each bump', () => {
@@ -28,12 +28,16 @@ const ENTRY = `  ["GetV1ThingsById", {
   }],`;
 const INPUT_SCHEMA_LINE = /^ {4}inputSchema: .*$/m;
 const THING = routeKey('get', '/v1/things/{id}');
+const THING_SCHEMA: InputSchema = {
+  type: 'object',
+  properties: { id: { type: 'string', example: 'th_000000000000' }, limit: { type: 'integer', example: 10 } },
+  required: ['id'],
+};
 
 test('replaceInputSchemas swaps each inputSchema for the one keyed by method and path', () => {
-  const schema = { type: 'object', properties: { limit: { type: 'integer', example: 10 } } };
-  const text = replaceInputSchemas(ENTRY, new Map([[THING, schema]]));
+  const text = replaceInputSchemas(ENTRY, new Map([[THING, THING_SCHEMA]]));
 
-  assert.equal(text.match(INPUT_SCHEMA_LINE)?.[0], `    inputSchema: ${JSON.stringify(schema)},`);
+  assert.equal(text.match(INPUT_SCHEMA_LINE)?.[0], `    inputSchema: ${JSON.stringify(THING_SCHEMA)},`);
   assert.equal(text.replace(INPUT_SCHEMA_LINE, ''), ENTRY.replace(INPUT_SCHEMA_LINE, ''));
 });
 
@@ -43,10 +47,17 @@ test('replaceInputSchemas refuses an operation the spec has no schema for', () =
 
 test('replaceInputSchemas refuses a schema the generator wrote no tool for', () => {
   const extra = routeKey('delete', '/v1/things/{id}');
-  assert.throws(() => replaceInputSchemas(ENTRY, new Map([[THING, {}], [extra, {}]])), /delete \/v1\/things\/\{id\}/);
+  assert.throws(() => replaceInputSchemas(ENTRY, new Map([[THING, THING_SCHEMA], [extra, THING_SCHEMA]])), /delete \/v1\/things\/\{id\}/);
+});
+
+test('replaceInputSchemas refuses a schema without a parameter or body the entry sends', () => {
+  const noId: InputSchema = { type: 'object', properties: {} };
+  assert.throws(() => replaceInputSchemas(ENTRY, new Map([[THING, noId]])), /sends id,/);
+  const multipart = ENTRY.replace('requestBodyContentType: undefined', 'requestBodyContentType: "multipart/form-data"');
+  assert.throws(() => replaceInputSchemas(multipart, new Map([[THING, THING_SCHEMA]])), /sends requestBody,/);
 });
 
 test('replaceInputSchemas refuses an entry whose shape it does not recognise', () => {
   const moved = ENTRY.replace('    method: "get",\n', '').replace('securityRequirements: []', 'securityRequirements: [],\n    method: "get"');
-  assert.throws(() => replaceInputSchemas(moved, new Map([[THING, {}]])), /0 of 1 tools/);
+  assert.throws(() => replaceInputSchemas(moved, new Map([[THING, THING_SCHEMA]])), /0 of 1 tools/);
 });

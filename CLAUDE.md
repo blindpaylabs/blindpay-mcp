@@ -40,8 +40,9 @@ anywhere in this path; every step is a plain script.
    - picks the version bump (see "Version bump") and writes that version
      into both `package.json` and `SERVER_VERSION`.
    Any spec shape the script can't map (missing map markers, a name it
-   can't shorten under the limit, a duplicate name, a tool the generator and
-   the hosted server don't both list) is a hard failure, not a best guess.
+   can't shorten under the limit, a duplicate name, a tool or parameter the
+   generator and the hosted server's schema don't agree on) is a hard
+   failure, not a best guess.
 3. CI (`ci.yml`, required on `main`) typechecks, builds and re-checks the
    52-char limit. The PR on the `api-sync` branch is opened/updated and
    `gh pr merge --auto --squash` is set on it, so it merges itself once CI
@@ -175,7 +176,8 @@ with it. When one of these changes there, change it here too:
 Deliberate differences:
 
 - The instance param stays required without `BLINDPAY_INSTANCE_ID`
-  (nothing else can fill it in).
+  (nothing else can fill it in). With it, the param's description says it
+  comes from `BLINDPAY_INSTANCE_ID` where hosted says "your credential".
 - `BLINDPAY_INSTANCE_ID` also fills `PostV1Presign`'s `instance_id` query
   param, as 1.8.0 did; hosted requires it.
 - A non-JSON response body (a load balancer's HTML error page; the API
