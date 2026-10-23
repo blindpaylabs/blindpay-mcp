@@ -28,6 +28,13 @@ export interface AuthorizeObservations {
    * gallery installs into, and it signs in with CIMD too.
    */
   vscode: AuthorizeOutcome[];
+  /**
+   * ChatGPT's client metadata document and its stable redirect, asking for
+   * the scopes ChatGPT requests: OpenAI's auth docs say it asks for every
+   * OIDC scope the authorization server advertises. A scope its client may
+   * not request comes back as error=invalid_scope on the redirect.
+   */
+  chatgpt: AuthorizeOutcome;
   /** One outcome per redirect the client never declared; each must be refused. */
   undeclaredRedirects: AuthorizeOutcome[];
 }
@@ -44,6 +51,17 @@ export interface ConnectorObservations {
   bogusRefresh: { status: number; error: unknown } | null;
   /** null when discovery failed before /authorize could be found. */
   authorize: AuthorizeObservations | null;
+}
+
+// The OIDC Core scopes, in the order a client usually lists them. Provider
+// specific scopes (Clerk's public_metadata, private_metadata) are not OIDC
+// scopes, so ChatGPT leaves them out.
+const OIDC_SCOPES = ['openid', 'profile', 'email', 'address', 'phone', 'offline_access'];
+
+/** The OIDC scopes an authorization server advertises, space-separated, as ChatGPT would request them. */
+export function advertisedOidcScopes(authServerMetadata: unknown): string {
+  const advertised = asStrings(asObject(authServerMetadata).scopes_supported);
+  return OIDC_SCOPES.filter((scope) => advertised.includes(scope)).join(' ');
 }
 
 export function parseResourceMetadataUrl(wwwAuthenticate: string | null): string | null {
@@ -133,6 +151,12 @@ function checkAuthorize({ authorize }: ConnectorObservations): string[] {
   const vscodeMisses = authorize.vscode.filter((outcome) => outcome !== 'sign-in');
   if (vscodeMisses.length > 0) {
     problems.push(`Sign-in from VS Code failed for ${vscodeMisses.length} of ${authorize.vscode.length} redirects; accept its client metadata document and the redirects it declares.`);
+  }
+  if (authorize.chatgpt !== 'sign-in') {
+    problems.push(
+      `Sign-in from ChatGPT ended as "${authorize.chatgpt}"; accept https://chatgpt.com/oauth/client.json, ` +
+        'its redirect https://chatgpt.com/connector_platform_oauth_redirect and every OIDC scope the authorization server advertises.',
+    );
   }
   const accepted = authorize.undeclaredRedirects.filter((outcome) => outcome !== 'refused');
   if (accepted.length > 0) {

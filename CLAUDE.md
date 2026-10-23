@@ -11,7 +11,7 @@ npm run sync:check        # Same pipeline, but diffs against committed files ins
 npm run check-tool-names  # Static gate: fails if any committed tool name exceeds 52 chars
 npm run check-plugin      # Static gate: fails if plugins/blindpay breaks a Claude directory rule
 npm run check-openai-plugin  # Static gate: fails if plugins/openai breaks an OpenAI submission limit or leaves /mcp/readonly
-npm run check-connector   # Live check: walks Claude's OAuth sign-in against mcp.blindpay.com/mcp/readonly (not in CI)
+npm run check-connector   # Live check: walks the OAuth sign-in of Claude, Claude Code, VS Code and ChatGPT against mcp.blindpay.com/mcp/readonly (not in CI)
 npm test                  # Unit tests for scripts/lib (node:test via tsx)
 npm run pack:openai       # ZIP for the ChatGPT/Codex plugin directory, in build-plugins/
 ```
@@ -230,5 +230,7 @@ auth change in blindpay-v2 or Clerk. It checks what Claude's OAuth client
 needs and the MCP spec doesn't spell out: a 401 with a `resource_metadata`
 pointer, `resource` equal to the URL exactly, CIMD with public-client auth
 (Clerk has no DCR endpoint), S256, `invalid_grant` on a bad refresh token, and
-that claude.ai's, Claude Code's and VS Code's client metadata documents
-reach the sign-in page while an undeclared redirect is refused.
+that claude.ai's, Claude Code's, VS Code's and ChatGPT's client metadata
+documents reach the sign-in page while an undeclared redirect is refused.
+ChatGPT asks for every OIDC scope the authorization server advertises, so
+the probe sends those too.

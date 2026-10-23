@@ -6,11 +6,13 @@
  * sign-in page, so it creates no grants, tokens or clients. Not in ci.yml:
  * it depends on production being up; run it before a directory submission
  * and after auth changes. VS Code is probed too, since the GitHub MCP
- * Registry gallery installs into it.
+ * Registry gallery installs into it, and so is ChatGPT, whose reviewers
+ * rejected a plugin version they couldn't sign in to.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import {
   REQUEST_TIMEOUT_MS,
+  advertisedOidcScopes,
   classifyAuthorizeChain,
   evaluateConnector,
   parseResourceMetadataUrl,
@@ -22,12 +24,19 @@ import {
 interface OAuthClient {
   clientId: string;
   redirectUri: string;
+  /** Sent as the scope parameter when set. */
+  scope?: string;
 }
 
 const CLAUDE_AI = 'https://claude.ai/oauth/mcp-oauth-client-metadata';
 const CLAUDE_AI_CALLBACK = 'https://claude.ai/api/mcp/auth_callback';
 const CLAUDE_CODE = 'https://claude.ai/oauth/claude-code-client-metadata';
 const VSCODE = 'https://vscode.dev/oauth/client-metadata.json';
+// ChatGPT uses this client and redirect when the authorization server
+// advertises authorization_response_iss_parameter_supported (Clerk does);
+// otherwise it registers a per-connector callback.
+const CHATGPT = 'https://chatgpt.com/oauth/client.json';
+const CHATGPT_CALLBACK = 'https://chatgpt.com/connector_platform_oauth_redirect';
 
 const CLAUDE_AI_SIGN_IN: OAuthClient = { clientId: CLAUDE_AI, redirectUri: CLAUDE_AI_CALLBACK };
 // Claude Code picks a fresh port per session, so probe both loopback hosts it
@@ -104,6 +113,7 @@ function authorizeUrl(endpoint: string, client: OAuthClient, resource: string): 
     code_challenge_method: 'S256',
     state: randomBytes(8).toString('hex'),
     resource,
+    ...(client.scope && { scope: client.scope }),
   }).toString();
   return url;
 }
@@ -131,7 +141,7 @@ async function authorizeOutcome(endpoint: string, client: OAuthClient, resource:
   return classifyAuthorizeChain(await walkAuthorize(authorizeUrl(endpoint, client, resource), client.redirectUri), client.redirectUri);
 }
 
-async function observeAuthorize(endpoint: string, resource: string): Promise<AuthorizeObservations> {
+async function observeAuthorize(endpoint: string, resource: string, authServerMetadata: unknown): Promise<AuthorizeObservations> {
   // One at a time: a burst of parallel /authorize chains can trip the
   // authorization server's rate limiting and fail the check for no real reason.
   const outcomes = async (clients: OAuthClient[]) => {
@@ -143,6 +153,11 @@ async function observeAuthorize(endpoint: string, resource: string): Promise<Aut
     claudeAi: await authorizeOutcome(endpoint, CLAUDE_AI_SIGN_IN, resource),
     claudeCode: await outcomes(CLAUDE_CODE_SIGN_INS),
     vscode: await outcomes(VSCODE_SIGN_INS),
+    chatgpt: await authorizeOutcome(
+      endpoint,
+      { clientId: CHATGPT, redirectUri: CHATGPT_CALLBACK, scope: advertisedOidcScopes(authServerMetadata) },
+      resource,
+    ),
     undeclaredRedirects: await outcomes(UNDECLARED_REDIRECTS),
   };
 }
@@ -180,7 +195,7 @@ async function observe(serverUrl: string) {
     resourceMetadata,
     authServerMetadata,
     bogusRefresh: endpoints === null ? null : await observeBogusRefresh(endpoints.token_endpoint),
-    authorize: endpoints === null ? null : await observeAuthorize(endpoints.authorization_endpoint, serverUrl),
+    authorize: endpoints === null ? null : await observeAuthorize(endpoints.authorization_endpoint, serverUrl, authServerMetadata),
     slowestRequestMs: Math.round(Math.max(0, ...timings)),
   };
 }
@@ -200,11 +215,11 @@ async function main(): Promise<void> {
   const problems = evaluateConnector(observations);
 
   if (problems.length > 0) {
-    console.error(`${serverUrl} would fail Claude's sign-in:`);
+    console.error(`${serverUrl} would fail sign-in:`);
     for (const problem of problems) console.error(`  - ${problem}`);
     process.exit(1);
   }
-  console.log(`OK: Claude can sign in to ${serverUrl} (slowest discovery or token request ${observations.slowestRequestMs} ms).`);
+  console.log(`OK: claude.ai, Claude Code, VS Code and ChatGPT reach sign-in for ${serverUrl} (slowest discovery or token request ${observations.slowestRequestMs} ms).`);
 }
 
 function describeFailure(err: Error): string {
