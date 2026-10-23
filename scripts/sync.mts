@@ -2,10 +2,11 @@
 /**
  * Deterministic replacement for the old "generate + ask Claude to merge"
  * pipeline. Produces src/index.ts as: src/index.template.ts (frozen,
- * hand-maintained) with a freshly generated toolDefinitionMap spliced in,
- * and bumps package.json's version from a scripted diff of the tool-name
- * set. No LLM, no guessing: anything the generator output doesn't match the
- * expected shape for is a hard failure.
+ * hand-maintained) with a freshly generated toolDefinitionMap and webhook
+ * event list spliced in. The version is left alone when the rebuilt file is
+ * unchanged; otherwise it gets a minor bump if a tool name was added or
+ * removed and a patch bump if not. No LLM, no guessing: anything the
+ * generator output doesn't match the expected shape for is a hard failure.
  *
  * Usage:
  *   node --import tsx scripts/sync.mts [--spec path] [--out-dir dir] [--check]
