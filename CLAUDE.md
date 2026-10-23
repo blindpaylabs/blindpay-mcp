@@ -102,8 +102,9 @@ scripts/generate.ts         # Legacy raw generator dump for manual debugging
 
 ## src/index.template.ts layout
 
-Same three-section shape as before, minus the two things that are now
-data-driven rather than hand-copied:
+Same three-section shape as before, minus the three things that are now
+data-driven rather than hand-copied (the version, the tool map and the
+webhook events):
 
 1. **Imports + server constants**. `SERVER_VERSION` is the literal string
    `__SERVER_VERSION__`, substituted at build time from `package.json`, so
@@ -136,10 +137,11 @@ can't drift:
    `if (typeof ... === 'undefined')` block.
 4. **`BLINDPAY_API_KEY` fallback** in both the bearer-auth check and the
    bearer-auth apply sections of `executeApiTool`.
-5. **`BLINDPAY_INSTANCE_ID` auto-inject** at the top of `executeApiTool`,
-   into the instance path param (`instance_id`, or `id` on
-   `/v1/instances/{id}` routes). It overrides a model-supplied value, and
-   `tools/list` then marks the param optional, as the hosted server does.
+5. **`BLINDPAY_INSTANCE_ID` auto-inject** in `executeApiTool`, right after
+   the arguments are validated, into the instance param (`instance_id`,
+   `id` on `/v1/instances/{id}` routes, or the `instance_id` query param of
+   `PostV1Presign`). It overrides a model-supplied value, and `tools/list`
+   then marks the param optional, as the hosted server does.
 6. **Hardcoded `API_BASE_URL = 'https://api.blindpay.com'`** instead of the
    generator's `process.env.API_BASE_URL || ''`.
 7. **`SERVER_NAME = '@blindpay/mcp'`**, kept alongside the `__SERVER_VERSION__`
@@ -162,9 +164,23 @@ with it. When one of these changes there, change it here too:
   same list `/mcp/readonly` uses.
 - **Tool results.** `HTTP <status>` then the full body, `isError` on 4xx/5xx.
 
-Deliberate differences: the instance param stays required without
-`BLINDPAY_INSTANCE_ID` (nothing else can fill it in), `SERVER_NAME`, and the
-version, which is this package's npm semver, not the hosted tool-surface one.
+Deliberate differences:
+
+- The instance param stays required without `BLINDPAY_INSTANCE_ID`
+  (nothing else can fill it in).
+- `BLINDPAY_INSTANCE_ID` also fills `PostV1Presign`'s `instance_id` query
+  param, as 1.8.0 did; hosted requires it.
+- A non-JSON response body (a load balancer's HTML error page; the API
+  itself answers in JSON) is cut at 2,000 characters. Hosted calls the API
+  in-process, so it never sees one.
+- `SERVER_NAME`, and the version, which is this package's npm semver, not
+  the hosted tool-surface one.
+
+Regenerate from the public spec the way blindpay-v2's `mcp-sync.yml` builds
+it: `bun scripts/openapi-public-filter.ts --in apps/api/openapi.json --out
+<file>` in blindpay-v2, then `npm run sync -- --spec <file>` here. The same
+file belongs on the `api-sync-data` branch, or the next `api-sync` run
+regenerates from an older spec.
 
 ## Tool name length limit (52 chars)
 

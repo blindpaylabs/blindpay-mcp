@@ -28,14 +28,14 @@ All 43 tools the read-only BlindPay MCP server exposes, grouped by what they ans
 
 | Tool | Needs | Filters | Returns |
 | --- | --- | --- | --- |
-| `GetV1InstancesTransfers` | | paging only | Transfers with `status` and tracking |
+| `GetV1InstancesTransfers` | | `status` (`processing`, `failed`, `refunded`, `completed`), `customer_id`, `wallet_id`, `network`, `token`, paging | Transfers with `status` and tracking |
 | `GetV1InstancesTransfersById` | `id` | | One transfer |
 
 ## Payables (bills paid by a payout)
 
 | Tool | Needs | Filters | Returns |
 | --- | --- | --- | --- |
-| `GetV1InstancesPayables` | | `status` (`draft`, `processing`, `completed`, `canceled`), `customer_id`, paging | Payables; `amount` is in cents, `payout_id` links the payout that paid it |
+| `GetV1InstancesPayables` | | `status` (`draft`, `processing`, `completed`, `canceled`), `type` (`boleto`, `pix_code`, `invoice`), `customer_id`, `customer_name`, `beneficiary_name`, paging | Payables; `amount` is in cents, `payout_id` links the payout that paid it |
 | `GetV1InstancesPayablesById` | `id` (`pb_`) | | One payable with line items, taxes and due date |
 
 ## Customers (receivers)
