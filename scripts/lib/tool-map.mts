@@ -1,9 +1,11 @@
 /**
  * Pure helpers for extracting, renaming and validating the toolDefinitionMap
- * block that openapi-mcp-generator writes into its reference src/index.ts.
- * No I/O here so these are unit-testable and reused by scripts/sync.mts and
- * scripts/check-tool-names.mts.
+ * block that openapi-mcp-generator writes into its reference src/index.ts,
+ * and for swapping its input schemas. No I/O here so these are unit-testable
+ * and reused by scripts/sync.mts and scripts/check-tool-names.mts.
  */
+
+import { routeKey } from './openapi.mts';
 
 export const MAX_TOOL_NAME_LENGTH = 52;
 
@@ -115,33 +117,36 @@ export function renameOverLongTools(entriesText: string): RenameResult {
 }
 
 // The three consecutive lines the generator writes for every entry.
-const INPUT_SCHEMA_AND_ROUTE = /^( *)inputSchema: .*,\n( *)method: "([a-z]+)",\n( *)pathTemplate: "([^"\n]*)",$/gm;
+const INPUT_SCHEMA_AND_ROUTE = /^( *)inputSchema: .*,\n\1method: "([a-z]+)",\n\1pathTemplate: "([^"\n]*)",$/gm;
 
 /**
- * Swaps each entry's one-line `inputSchema:` for the schema keyed
- * `<method> <pathTemplate>` in `schemas` (see inputSchemasFromOpenApi).
- * Throws when the spec has no schema for an entry, or when an entry doesn't
- * have the inputSchema/method/pathTemplate lines in that order.
+ * Swaps each entry's one-line `inputSchema:` for its schema in
+ * `inputSchemas` (see inputSchemasFromOpenApi). Throws when an entry has no
+ * schema, when a schema has no entry (the two servers would list different
+ * tools), or when an entry doesn't have the inputSchema/method/pathTemplate
+ * lines in that order.
  */
-export function replaceInputSchemas(entriesText: string, schemas: Map<string, unknown>): string {
-  let replaced = 0;
-  const text = entriesText.replace(
-    INPUT_SCHEMA_AND_ROUTE,
-    (_lines, indent: string, methodIndent: string, method: string, pathIndent: string, path: string) => {
-      const schema = schemas.get(`${method} ${path}`);
-      if (schema === undefined) {
-        throw new Error(`The spec has no input schema for ${method.toUpperCase()} ${path}. Refusing to guess.`);
-      }
-      replaced += 1;
-      return `${indent}inputSchema: ${JSON.stringify(schema)},\n${methodIndent}method: "${method}",\n${pathIndent}pathTemplate: "${path}",`;
-    },
-  );
-  const tools = extractToolNames(entriesText).length;
-  if (replaced !== tools) {
+export function replaceInputSchemas(entriesText: string, inputSchemas: Map<string, unknown>): string {
+  const used = new Set<string>();
+  const text = entriesText.replace(INPUT_SCHEMA_AND_ROUTE, (_lines, indent: string, method: string, path: string) => {
+    const key = routeKey(method, path);
+    const schema = inputSchemas.get(key);
+    if (schema === undefined) {
+      throw new Error(`The spec has no input schema for ${method.toUpperCase()} ${path}. Refusing to guess.`);
+    }
+    used.add(key);
+    return `${indent}inputSchema: ${JSON.stringify(schema)},\n${indent}method: "${method}",\n${indent}pathTemplate: "${path}",`;
+  });
+  const toolCount = extractToolNames(entriesText).length;
+  if (used.size !== toolCount) {
     throw new Error(
-      `Replaced the inputSchema of ${replaced} of ${tools} tools. ` +
+      `Replaced the inputSchema of ${used.size} of ${toolCount} tools. ` +
         'The generator output shape may have changed; refusing to guess.',
     );
+  }
+  const unused = [...inputSchemas.keys()].filter((key) => !used.has(key));
+  if (unused.length > 0) {
+    throw new Error(`The generator wrote no tool for ${unused.join(', ')}, which the hosted server lists. Refusing to guess.`);
   }
   return text;
 }

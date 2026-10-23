@@ -32,16 +32,16 @@ anywhere in this path; every step is a plain script.
    (`scripts/sync.mts`), which:
    - runs `openapi-mcp-generator` against the spec,
    - extracts its `toolDefinitionMap` block,
+   - deterministically shortens any tool name over 52 chars (see below),
    - rebuilds every tool's `inputSchema` from the spec the way the hosted
      server does (see "Parity with the hosted server"),
-   - deterministically shortens any tool name over 52 chars (see below),
    - splices that map, plus the spec's webhook events, into
      `src/index.template.ts` to produce `src/index.ts`,
    - picks the version bump (see "Version bump") and writes that version
      into both `package.json` and `SERVER_VERSION`.
    Any spec shape the script can't map (missing map markers, a name it
-   can't shorten under the limit, a duplicate name) is a hard failure, not
-   a best guess.
+   can't shorten under the limit, a duplicate name, a tool the generator and
+   the hosted server don't both list) is a hard failure, not a best guess.
 3. CI (`ci.yml`, required on `main`) typechecks, builds and re-checks the
    52-char limit. The PR on the `api-sync` branch is opened/updated and
    `gh pr merge --auto --squash` is set on it, so it merges itself once CI
@@ -65,9 +65,9 @@ src/index.ts                # Built by scripts/sync.mts. Do not hand-edit.
 scripts/sync.mts            # The deterministic build: generator -> extract
                             # -> rename -> input schemas -> splice -> version bump.
 scripts/check-tool-names.mts  # Standalone 52-char gate, used by ci.yml too.
-scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, semver
-                            # bump) used by both scripts above, with
-                            # tool-map.test.mts next to it.
+scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, the
+                            # input-schema swap, semver bump) used by both
+                            # scripts above, with tool-map.test.mts next to it.
 scripts/lib/openapi.mts     # Ports of the hosted server's spec helpers
                             # (dereference, input schemas, webhook events),
                             # with openapi.test.mts next to it.
@@ -111,9 +111,9 @@ webhook events):
    the two can never drift apart.
 2. **`toolDefinitionMap`**. The array literal body is the literal comment
    `/* __TOOL_DEFINITIONS__ */`, replaced at build time with the freshly
-   generated (and, where needed, renamed) tool entries. Never hand-edit
-   tool entries, not even in the template, fix them upstream in the API
-   spec. `WEBHOOK_EVENTS` works the same way through
+   generated tool entries (renamed where needed, schemas rebuilt from the
+   spec). Never hand-edit tool entries, not even in the template, fix them
+   upstream in the API spec. `WEBHOOK_EVENTS` works the same way through
    `/* __WEBHOOK_EVENTS__ */`.
 3. **Helpers + entrypoint** (`instanceParamName`, `clientInputSchema`,
    `registerWebhookResources`, `acquireOAuth2Token`, `executeApiTool`,

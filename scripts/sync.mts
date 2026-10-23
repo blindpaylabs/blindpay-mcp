@@ -4,9 +4,9 @@
  * pipeline. Produces src/index.ts as: src/index.template.ts (frozen,
  * hand-maintained) with a freshly generated toolDefinitionMap and webhook
  * event list spliced in. Each tool's inputSchema is rebuilt from the spec the
- * way the hosted server builds it. The version is left alone when the rebuilt file is
- * unchanged; otherwise it gets a minor bump if a tool name was added or
- * removed and a patch bump if not. No LLM, no guessing: anything the
+ * way the hosted server builds it. The version is left alone when the
+ * rebuilt file is unchanged; otherwise it gets a minor bump if a tool name was
+ * added or removed and a patch bump if not. No LLM, no guessing: anything the
  * generator output doesn't match the expected shape for is a hard failure.
  *
  * Usage:

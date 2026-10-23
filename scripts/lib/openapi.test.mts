@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dereference, hasRequiredFields, inputSchemasFromOpenApi, webhookEventsFromOpenApi } from './openapi.mts';
+import { dereference, hasRequiredFields, inputSchemasFromOpenApi, routeKey, webhookEventsFromOpenApi } from './openapi.mts';
 
 const components = {
   schemas: {
@@ -32,7 +32,7 @@ test('hasRequiredFields looks at required and allOf branches', () => {
 });
 
 test('inputSchemasFromOpenApi keeps integer types, examples and the instance param as the spec has them', () => {
-  const schemas = inputSchemasFromOpenApi({
+  const inputSchemas = inputSchemasFromOpenApi({
     components,
     paths: {
       '/v1/instances/{instance_id}/quotes': {
@@ -51,7 +51,7 @@ test('inputSchemasFromOpenApi keeps integer types, examples and the instance par
   });
 
   // The body's own description is not copied in, as on the hosted server.
-  assert.deepEqual(schemas.get('post /v1/instances/{instance_id}/quotes'), {
+  assert.deepEqual(inputSchemas.get(routeKey('post', '/v1/instances/{instance_id}/quotes')), {
     type: 'object',
     properties: {
       instance_id: { type: 'string', example: 'in_000000000000' },
@@ -67,7 +67,7 @@ test('inputSchemasFromOpenApi keeps integer types, examples and the instance par
 });
 
 test('inputSchemasFromOpenApi requires a body that has required fields or the spec flag', () => {
-  const schemas = inputSchemasFromOpenApi({
+  const inputSchemas = inputSchemasFromOpenApi({
     components,
     paths: {
       '/v1/refined': { post: { requestBody: jsonBody({ $ref: '#/components/schemas/Refined' }) } },
@@ -76,13 +76,13 @@ test('inputSchemasFromOpenApi requires a body that has required fields or the sp
     },
   });
 
-  assert.deepEqual(schemas.get('post /v1/refined')?.required, ['requestBody']);
-  assert.equal(schemas.get('patch /v1/patch')?.required, undefined);
-  assert.deepEqual(schemas.get('put /v1/flagged')?.required, ['requestBody']);
+  assert.deepEqual(inputSchemas.get(routeKey('post', '/v1/refined'))?.required, ['requestBody']);
+  assert.equal(inputSchemas.get(routeKey('patch', '/v1/patch'))?.required, undefined);
+  assert.deepEqual(inputSchemas.get(routeKey('put', '/v1/flagged'))?.required, ['requestBody']);
 });
 
 test('inputSchemasFromOpenApi skips x-mcp: false operations and leaves non-JSON bodies out', () => {
-  const schemas = inputSchemasFromOpenApi({
+  const inputSchemas = inputSchemasFromOpenApi({
     components,
     paths: {
       '/v1/upload': { post: { 'x-mcp': false, requestBody: { content: { 'multipart/form-data': { schema: { type: 'object' } } } } } },
@@ -91,9 +91,9 @@ test('inputSchemasFromOpenApi skips x-mcp: false operations and leaves non-JSON 
     },
   });
 
-  assert.equal(schemas.has('post /v1/upload'), false);
-  assert.deepEqual(schemas.get('post /v1/notes'), { type: 'object', properties: {} });
-  assert.deepEqual(schemas.get('get /v1/list'), { type: 'object', properties: {} });
+  assert.equal(inputSchemas.has(routeKey('post', '/v1/upload')), false);
+  assert.deepEqual(inputSchemas.get(routeKey('post', '/v1/notes')), { type: 'object', properties: {} });
+  assert.deepEqual(inputSchemas.get(routeKey('get', '/v1/list')), { type: 'object', properties: {} });
 });
 
 test('webhookEventsFromOpenApi sorts events and resolves payloads', () => {

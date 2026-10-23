@@ -65,8 +65,13 @@ export interface InputSchema {
   required?: string[];
 }
 
+/** How inputSchemasFromOpenApi keys an operation: `post /v1/instances/{instance_id}/quotes`. */
+export function routeKey(method: string, path: string): string {
+  return `${method} ${path}`;
+}
+
 /**
- * Each operation's MCP inputSchema, keyed by `<method> <path>`: parameters by
+ * Each operation's MCP inputSchema, keyed by routeKey: parameters by
  * name, then the JSON body under `requestBody`, required whenever it has
  * required fields. The spec's schemas are kept as they are, where
  * openapi-mcp-generator turns integer into number, drops examples and copies
@@ -100,7 +105,7 @@ export function inputSchemasFromOpenApi(doc: { paths?: unknown; components?: unk
         if (op.requestBody?.required || hasRequiredFields(body)) required.push('requestBody');
       }
 
-      inputSchemas.set(`${method} ${path}`, { type: 'object', properties, ...(required.length > 0 ? { required } : {}) });
+      inputSchemas.set(routeKey(method, path), { type: 'object', properties, ...(required.length > 0 ? { required } : {}) });
     }
   }
 
