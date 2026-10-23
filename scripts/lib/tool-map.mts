@@ -114,6 +114,38 @@ export function renameOverLongTools(entriesText: string): RenameResult {
   return { text, renames };
 }
 
+// The three consecutive lines the generator writes for every entry.
+const INPUT_SCHEMA_AND_ROUTE = /^( *)inputSchema: .*,\n( *)method: "([a-z]+)",\n( *)pathTemplate: "([^"\n]*)",$/gm;
+
+/**
+ * Swaps each entry's one-line `inputSchema:` for the schema keyed
+ * `<method> <pathTemplate>` in `schemas` (see inputSchemasFromOpenApi).
+ * Throws when the spec has no schema for an entry, or when an entry doesn't
+ * have the inputSchema/method/pathTemplate lines in that order.
+ */
+export function replaceInputSchemas(entriesText: string, schemas: Map<string, unknown>): string {
+  let replaced = 0;
+  const text = entriesText.replace(
+    INPUT_SCHEMA_AND_ROUTE,
+    (_lines, indent: string, methodIndent: string, method: string, pathIndent: string, path: string) => {
+      const schema = schemas.get(`${method} ${path}`);
+      if (schema === undefined) {
+        throw new Error(`The spec has no input schema for ${method.toUpperCase()} ${path}. Refusing to guess.`);
+      }
+      replaced += 1;
+      return `${indent}inputSchema: ${JSON.stringify(schema)},\n${methodIndent}method: "${method}",\n${pathIndent}pathTemplate: "${path}",`;
+    },
+  );
+  const tools = extractToolNames(entriesText).length;
+  if (replaced !== tools) {
+    throw new Error(
+      `Replaced the inputSchema of ${replaced} of ${tools} tools. ` +
+        'The generator output shape may have changed; refusing to guess.',
+    );
+  }
+  return text;
+}
+
 /**
  * Fails loudly if any tool name in entriesText is still over the limit
  * (used as a final gate after renaming, and standalone by the CI check).

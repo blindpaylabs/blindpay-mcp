@@ -3,7 +3,8 @@
  * Deterministic replacement for the old "generate + ask Claude to merge"
  * pipeline. Produces src/index.ts as: src/index.template.ts (frozen,
  * hand-maintained) with a freshly generated toolDefinitionMap and webhook
- * event list spliced in. The version is left alone when the rebuilt file is
+ * event list spliced in. Each tool's inputSchema is rebuilt from the spec the
+ * way the hosted server builds it. The version is left alone when the rebuilt file is
  * unchanged; otherwise it gets a minor bump if a tool name was added or
  * removed and a patch bump if not. No LLM, no guessing: anything the
  * generator output doesn't match the expected shape for is a hard failure.
@@ -17,18 +18,18 @@
  *          proofs and can be wired into CI.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   extractToolMapEntries,
   extractToolNames,
   renameOverLongTools,
+  replaceInputSchemas,
   assertToolNamesWithinLimit,
   decideVersionBump,
   bumpSemver,
 } from './lib/tool-map.mts';
-import { requireBodiesWithRequiredFields, webhookEventsFromOpenApi } from './lib/openapi.mts';
+import { inputSchemasFromOpenApi, webhookEventsFromOpenApi } from './lib/openapi.mts';
 
 interface Args {
   spec: string;
@@ -81,17 +82,7 @@ function main(): void {
   }
 
   const spec = JSON.parse(readFileSync(args.spec, 'utf8'));
-  // The generator reads a copy with `requestBody.required` set the way the
-  // hosted server derives it (see lib/openapi.mts); the spec itself is untouched.
-  const prepared = requireBodiesWithRequiredFields(spec);
-  const specDir = mkdtempSync(join(tmpdir(), 'blindpay-mcp-spec-'));
-  const preparedSpecPath = join(specDir, 'openapi.json');
-  writeFileSync(preparedSpecPath, JSON.stringify(prepared.doc));
-  try {
-    runGenerator(preparedSpecPath, args.outDir);
-  } finally {
-    rmSync(specDir, { recursive: true, force: true });
-  }
+  runGenerator(args.spec, args.outDir);
   const webhookEvents = webhookEventsFromOpenApi(spec);
 
   const generatedPath = resolve(args.outDir, 'src/index.ts');
@@ -124,6 +115,15 @@ function main(): void {
     fail('Generated tool map has duplicate tool names after renaming. Refusing to guess.');
   }
 
+  // The generator's own schemas lose integer types and examples (see
+  // lib/openapi.mts), so each one is rebuilt from the spec.
+  let entries: string;
+  try {
+    entries = replaceInputSchemas(renamed!.text, inputSchemasFromOpenApi(spec));
+  } catch (err) {
+    fail((err as Error).message);
+  }
+
   const templatePath = resolve(repoRoot, 'src/index.template.ts');
   if (!existsSync(templatePath)) fail(`Template not found at ${templatePath}.`);
   const template = readFileSync(templatePath, 'utf8');
@@ -153,7 +153,7 @@ function main(): void {
   // replacement pattern.
   const buildIndex = (version: string) =>
     template
-      .replace('/* __TOOL_DEFINITIONS__ */', () => renamed!.text.trim())
+      .replace('/* __TOOL_DEFINITIONS__ */', () => entries!.trim())
       .replace('/* __WEBHOOK_EVENTS__ */', () => webhookEvents.map((event) => JSON.stringify(event)).join(',\n  '))
       .replace('__SERVER_VERSION__', version);
 
@@ -183,7 +183,6 @@ function main(): void {
     added,
     removed,
     renames: renamed!.renames,
-    requiredBodies: prepared.changed.length,
     webhookEvents: webhookEvents.length,
   };
 
