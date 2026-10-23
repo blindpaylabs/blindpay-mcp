@@ -36,7 +36,7 @@ Set `BLINDPAY_MCP_PROFILE` on the local server to choose which tools are exposed
 | Profile | Tools | Use when |
 | --- | --- | --- |
 | `full` (default) | Every public API operation, including payouts and transfers | Building or operating with an AI coding assistant |
-| `readonly` | `GET` operations only: status, balances, quotes, history. Leaves out the wallet sign-message and webhook secret tools, like `/mcp/readonly` | Consumer assistants, or any place a tool that moves money is unwanted |
+| `readonly` | `GET` operations only: status, balances, history. Leaves out the wallet sign-message, webhook secret and webhook portal-access tools, and drops `trace_id` from JSON responses, like `/mcp/readonly` | Consumer assistants, or any place a tool that moves money is unwanted |
 
 Every tool carries MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) derived from its HTTP verb, so clients can gate confirmations themselves.
 

@@ -46,7 +46,7 @@ interface McpToolDefinition {
  * Server configuration
  */
 export const SERVER_NAME = '@blindpay/mcp';
-export const SERVER_VERSION = '1.9.1';
+export const SERVER_VERSION = '1.9.2';
 export const API_BASE_URL = 'https://api.blindpay.com';
 
 /**
@@ -58,10 +58,28 @@ export const API_BASE_URL = 'https://api.blindpay.com';
 const ENV_INSTANCE_ID = process.env.BLINDPAY_INSTANCE_ID || undefined;
 
 /**
- * Server instructions sent on `initialize`. Same text as the hosted server
- * (blindpay-v2 apps/api/src/shared/public-mcp/instructions.ts) except the
- * second sentence, which depends on BLINDPAY_INSTANCE_ID here. Change both
- * together.
+ * Tool profiles (BLINDPAY_MCP_PROFILE):
+ *   full      every public API operation (default)
+ *   readonly  GET operations only: status, balances, history.
+ *             Consumer directories (Claude, ChatGPT) reject tools that move
+ *             money, so this is the profile they get.
+ */
+type ToolProfile = 'full' | 'readonly';
+const TOOL_PROFILE: ToolProfile =
+  (process.env.BLINDPAY_MCP_PROFILE ?? 'full').toLowerCase() === 'readonly' ? 'readonly' : 'full';
+
+// Shared by both instruction texts, as in hosted instructions.ts.
+const BALANCE_AND_FEE_UNITS =
+  'Wallet balances (GetV1InstancesCustomersWalletsBalance) are whole tokens (10.5 = 10.5 USDC). Partner percentage fees are basis points (100 = 1%) and flat fees are cents.';
+const UNITS = `Units: request_amount and every *_amount on quotes, payouts and payins are integer cents (1000 = 10.00). ${BALANCE_AND_FEE_UNITS} expires_at on quotes is epoch milliseconds.`;
+const DOCS =
+  'Docs for agents: https://blindpay.com/docs/llms.txt (full text at https://blindpay.com/docs/llms-full.txt).';
+
+/**
+ * Server instructions the full profile sends on `initialize`. Same text as the
+ * hosted server's SERVER_INSTRUCTIONS (blindpay-v2
+ * apps/api/src/shared/public-mcp/instructions.ts) except the second sentence,
+ * which depends on BLINDPAY_INSTANCE_ID here. Change both together.
  */
 const INSTANCE_SENTENCE = ENV_INSTANCE_ID
   ? 'These tools call the BlindPay API for the one instance your API key is bound to; the instance id is filled in for you.'
@@ -71,7 +89,7 @@ export const SERVER_INSTRUCTIONS = `BlindPay moves money between stablecoins and
 
 Start with GetV1InstancesById. If type is "development", settlement is simulated with the test token USDB and no real money moves. If type is "production", every payout, transfer and payin moves real funds: confirm amounts and recipients with the user before calling a create tool.
 
-Units: request_amount and every *_amount on quotes, payouts and payins are integer cents (1000 = 10.00). Wallet balances (GetV1InstancesCustomersWalletsBalance) are whole tokens (10.5 = 10.5 USDC). Partner percentage fees are basis points (100 = 1%) and flat fees are cents. expires_at on quotes is epoch milliseconds.
+${UNITS}
 
 Payout flow: PostV1EInstancesTos returns a consent URL; the end customer must open it and accept, and the tos_id (to_...) comes back as a query parameter on your redirect_url and in the tos.accept webhook. Then PostV1InstancesCustomers with that tos_id, then PostV1InstancesCustomersBankAccounts (call GetV1AvailableBankDetails with the rail first for the required fields), then PostV1InstancesQuotes, then execute within 5 minutes, when the quote expires. Use PostV1InstancesPayoutsEvm for BlindPay-managed wallets on any network, Solana included; PostV1InstancesPayoutsSolana and PostV1InstancesPayoutsStellar are for self-custodied wallets that sign.
 
@@ -87,14 +105,46 @@ Webhooks: the event names and payload schemas are resources at blindpay://webhoo
 
 Done by a person in the dashboard (app.blindpay.com), not by tools: creating API keys, creating instances, instance onboarding (KYB), inviting team members and terms of service acceptance by the end customer. Ask the user when you reach one of these.
 
-Docs for agents: https://blindpay.com/docs/llms.txt (full text at https://blindpay.com/docs/llms-full.txt).`;
+${DOCS}`;
+
+/**
+ * Instructions for the readonly profile: hosted READ_ONLY_SERVER_INSTRUCTIONS
+ * (the /mcp/readonly text) except the instance sentence. Naming a tool the
+ * profile doesn't have makes the model try to move money it can't, so this
+ * text names none.
+ */
+const READ_ONLY_INSTANCE_SENTENCE = ENV_INSTANCE_ID
+  ? "the tools read the one instance your API key is bound to, with the instance id filled in for you, plus BlindPay's reference data (payment rails, bank details, NAICS and SWIFT codes)."
+  : "the tools read the one instance your API key is bound to, plus BlindPay's reference data (payment rails, bank details, NAICS and SWIFT codes). Pass that instance id (in_...) as instance_id, or as id on GetV1InstancesById and GetV1InstancesMembers; ask the user for it if you do not have it.";
+
+export const READ_ONLY_SERVER_INSTRUCTIONS = `BlindPay moves money between stablecoins and local bank rails. This is the read-only connection: ${READ_ONLY_INSTANCE_SENTENCE} Nothing here can create, change or send anything.
+
+Start with GetV1InstancesById. If type is "development", settlement is simulated with the test token USDB and no real money moves. If type is "production", the data describes real funds.
+
+Units: every *_amount on payouts and payins is integer cents (1000 = 10.00). ${BALANCE_AND_FEE_UNITS}
+
+When the user asks to send a payout, move funds, create or edit a customer, bank account or wallet, register a webhook or change any setting: say this connection is read-only, point them to the dashboard at https://app.blindpay.com, and offer the lookup that helps (for example, the customer's bank accounts).
+
+Webhooks: the event names and payload schemas are resources at blindpay://webhooks/events.
+
+${DOCS}`;
+
+/**
+ * What the profile changes besides the tool list, mirroring the hosted
+ * endpoints: the instructions sent on `initialize`, and whether trace_id is
+ * dropped from JSON responses (only /mcp/readonly drops it).
+ */
+const PROFILE =
+  TOOL_PROFILE === 'readonly'
+    ? { instructions: READ_ONLY_SERVER_INSTRUCTIONS, dropTraceId: true }
+    : { instructions: SERVER_INSTRUCTIONS, dropTraceId: false };
 
 /**
  * MCP Server instance
  */
 const mcpServer = new McpServer(
   { name: SERVER_NAME, version: SERVER_VERSION },
-  { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS }
+  { capabilities: { tools: {} }, instructions: PROFILE.instructions }
 );
 
 // Access the underlying Server for handler registration
@@ -1038,25 +1088,15 @@ const securitySchemes = {
 };
 
 /**
- * Tool profiles (BLINDPAY_MCP_PROFILE):
- *   full      every public API operation (default)
- *   readonly  GET operations only: status, balances, quotes lookup, history.
- *             Consumer directories (Claude, ChatGPT) reject tools that move
- *             money, so this is the profile they get.
- */
-type ToolProfile = 'full' | 'readonly';
-const TOOL_PROFILE: ToolProfile =
-  (process.env.BLINDPAY_MCP_PROFILE ?? 'full').toLowerCase() === 'readonly' ? 'readonly' : 'full';
-
-/**
  * GET operations kept off the readonly profile even though the verb is
- * read-only: one produces a wallet signature, the other returns a webhook
- * signing secret. Same list as READ_ONLY_EXCLUDED_PATHS on the hosted
- * /mcp/readonly endpoint.
+ * read-only: one produces a wallet signature, one returns a webhook signing
+ * secret, and one returns a link that signs into the webhook portal. Same list
+ * as READ_ONLY_EXCLUDED_PATHS on the hosted /mcp/readonly endpoint.
  */
 const READ_ONLY_EXCLUDED_PATHS = new Set([
   '/v1/instances/{instance_id}/customers/{customer_id}/blockchain-wallets/sign-message',
   '/v1/instances/{instance_id}/webhook-endpoints/{id}/secret',
+  '/v1/instances/{instance_id}/webhook-endpoints/portal-access',
 ]);
 
 function isReadOnlyTool(def: McpToolDefinition): boolean {
@@ -1641,7 +1681,7 @@ async function executeApiTool(
 
     // Prepare the axios request configuration. Every HTTP status resolves, so
     // an API error comes back with its full body like a success does, and the
-    // body stays raw text for jsonOrText.
+    // body stays raw text for formatResponseBody.
     const config: AxiosRequestConfig = {
       method: definition.method.toUpperCase(),
       url: requestUrl,
@@ -1659,7 +1699,8 @@ async function executeApiTool(
     // Execute the request
     const response = await axios(config);
 
-    const responseText = jsonOrText(typeof response.data === 'string' ? response.data : '');
+    const body = typeof response.data === 'string' ? response.data : '';
+    const responseText = formatResponseBody(body, PROFILE.dropTraceId);
 
     // Same shape as the hosted server: status line, then the body; a 4xx or
     // 5xx is a tool error.
@@ -1732,15 +1773,25 @@ const MAX_NON_JSON_BODY_CHARS = 2000;
  * API answers in JSON, so any other body comes from something in front of it,
  * such as a load balancer's HTML 502 page: keep the first
  * MAX_NON_JSON_BODY_CHARS characters, enough to tell what happened without
- * filling the model's context with markup.
+ * filling the model's context with markup. With dropTraceId (the readonly
+ * profile) a top-level trace_id is left out, as the hosted /mcp/readonly
+ * does: OpenAI's plugin guidelines bar internal identifiers such as trace IDs
+ * from tool results.
  */
-function jsonOrText(text: string): string {
+function formatResponseBody(text: string, dropTraceId: boolean): string {
+  let body: unknown;
   try {
-    return JSON.stringify(JSON.parse(text), null, 2);
+    body = JSON.parse(text);
   } catch {
     if (text.length <= MAX_NON_JSON_BODY_CHARS) return text;
-    return `${text.slice(0, MAX_NON_JSON_BODY_CHARS)}\n[non-JSON response cut at ${MAX_NON_JSON_BODY_CHARS} of ${text.length} characters]`;
+    const note = `[non-JSON response cut at ${MAX_NON_JSON_BODY_CHARS} of ${text.length} characters]`;
+    return `${text.slice(0, MAX_NON_JSON_BODY_CHARS)}\n${note}`;
   }
+  if (dropTraceId && typeof body === 'object' && body !== null && 'trace_id' in body) {
+    const { trace_id: _traceId, ...rest } = body;
+    return JSON.stringify(rest, null, 2);
+  }
+  return JSON.stringify(body, null, 2);
 }
 
 /**
