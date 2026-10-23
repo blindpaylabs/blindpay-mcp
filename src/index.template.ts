@@ -204,7 +204,6 @@ function toolAnnotations(def: McpToolDefinition): ToolAnnotations {
   const method = def.method.toLowerCase();
   const readOnly = method === 'get';
   return {
-    title: toolTitle(def.name),
     readOnlyHint: readOnly,
     destructiveHint: method === 'delete',
     idempotentHint: readOnly || method === 'put' || method === 'delete',

@@ -47,35 +47,69 @@ export function hasRequiredFields(schema: unknown): boolean {
 const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 
 interface Operation {
+  'x-mcp'?: boolean;
+  parameters?: unknown[];
   requestBody?: { required?: boolean; content?: Record<string, { schema?: unknown }> };
 }
 
-/**
- * The hosted server requires `requestBody` whenever its JSON schema has
- * required fields; openapi-mcp-generator only honors `requestBody.required`,
- * which our routes almost never set. Setting the flag on a copy of the spec
- * before the generator runs gives both servers the same `required` list.
- * Returns the new spec and the tools-to-be whose flag was set.
- */
-export function requireBodiesWithRequiredFields<T extends { paths?: unknown; components?: unknown }>(
-  doc: T,
-): { doc: T; changed: string[] } {
-  const schemas = componentSchemas(doc);
-  const copy = structuredClone(doc);
-  const changed: string[] = [];
+interface Parameter {
+  name?: string;
+  in?: string;
+  required?: boolean;
+  schema?: unknown;
+}
 
-  for (const [path, item] of Object.entries((copy.paths ?? {}) as Record<string, Record<string, Operation>>)) {
+export interface InputSchema {
+  type: 'object';
+  properties: Record<string, unknown>;
+  required?: string[];
+}
+
+/** How inputSchemasFromOpenApi keys an operation: `post /v1/instances/{instance_id}/quotes`. */
+export function routeKey(method: string, path: string): string {
+  return `${method} ${path}`;
+}
+
+/**
+ * Each operation's MCP inputSchema, keyed by routeKey: parameters by
+ * name, then the JSON body under `requestBody`, required whenever it has
+ * required fields. The spec's schemas are kept as they are, where
+ * openapi-mcp-generator turns integer into number, drops examples and copies
+ * the body's description in. Port of the inputSchema half of
+ * `generateToolsFromOpenApi` in tool-gen.ts, minus its instance-param rewrite:
+ * here that param keeps its spec schema and stays required, and
+ * clientInputSchema relaxes it when BLINDPAY_INSTANCE_ID is set.
+ */
+export function inputSchemasFromOpenApi(doc: { paths?: unknown; components?: unknown }): Map<string, InputSchema> {
+  const schemas = componentSchemas(doc);
+  const inputSchemas = new Map<string, InputSchema>();
+
+  for (const [path, item] of Object.entries((doc.paths ?? {}) as Record<string, Record<string, Operation>>)) {
     for (const method of HTTP_METHODS) {
-      const body = item[method]?.requestBody;
-      const schema = body?.content?.['application/json']?.schema;
-      if (!body || body.required || schema === undefined) continue;
-      if (!hasRequiredFields(dereference(schema, schemas))) continue;
-      body.required = true;
-      changed.push(`${method.toUpperCase()} ${path}`);
+      const op = item[method];
+      if (!op || op['x-mcp'] === false) continue;
+
+      const properties: Record<string, unknown> = {};
+      const required: string[] = [];
+      for (const raw of op.parameters ?? []) {
+        const param = dereference(raw, schemas) as Parameter;
+        if (!param.name || !param.in) continue;
+        properties[param.name] = param.schema ?? {};
+        if (param.required) required.push(param.name);
+      }
+
+      const bodySchema = op.requestBody?.content?.['application/json']?.schema;
+      if (bodySchema !== undefined) {
+        const body = dereference(bodySchema, schemas);
+        properties.requestBody = body;
+        if (op.requestBody?.required || hasRequiredFields(body)) required.push('requestBody');
+      }
+
+      inputSchemas.set(routeKey(method, path), { type: 'object', properties, ...(required.length > 0 ? { required } : {}) });
     }
   }
 
-  return { doc: copy, changed };
+  return inputSchemas;
 }
 
 export const WEBHOOK_EVENTS_URI = 'blindpay://webhooks/events';

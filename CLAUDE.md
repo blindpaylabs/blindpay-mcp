@@ -30,18 +30,19 @@ anywhere in this path; every step is a plain script.
    `api-sync` event.
 2. `api-sync.yml` consumes the event and runs `npm run sync`
    (`scripts/sync.mts`), which:
-   - sets `requestBody.required` on a temp copy of the spec for every body
-     whose schema has required fields (see "Parity with the hosted server"),
-   - runs `openapi-mcp-generator` against that copy,
+   - runs `openapi-mcp-generator` against the spec,
    - extracts its `toolDefinitionMap` block,
    - deterministically shortens any tool name over 52 chars (see below),
+   - rebuilds every tool's `inputSchema` from the spec the way the hosted
+     server does (see "Parity with the hosted server"),
    - splices that map, plus the spec's webhook events, into
      `src/index.template.ts` to produce `src/index.ts`,
    - picks the version bump (see "Version bump") and writes that version
      into both `package.json` and `SERVER_VERSION`.
    Any spec shape the script can't map (missing map markers, a name it
-   can't shorten under the limit, a duplicate name) is a hard failure, not
-   a best guess.
+   can't shorten under the limit, a duplicate name, a tool or parameter the
+   generator and the hosted server's schema don't agree on) is a hard
+   failure, not a best guess.
 3. CI (`ci.yml`, required on `main`) typechecks, builds and re-checks the
    52-char limit. The PR on the `api-sync` branch is opened/updated and
    `gh pr merge --auto --squash` is set on it, so it merges itself once CI
@@ -63,13 +64,13 @@ src/index.ts                # Built by scripts/sync.mts. Do not hand-edit.
 .api-sync/openapi.json      # Public OpenAPI spec, written by upstream
                             # workflow on the api-sync-data branch.
 scripts/sync.mts            # The deterministic build: generator -> extract
-                            # -> rename -> splice -> version bump.
+                            # -> rename -> input schemas -> splice -> version bump.
 scripts/check-tool-names.mts  # Standalone 52-char gate, used by ci.yml too.
-scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, semver
-                            # bump) used by both scripts above, with
-                            # tool-map.test.mts next to it.
+scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, the
+                            # input-schema swap, semver bump) used by both
+                            # scripts above, with tool-map.test.mts next to it.
 scripts/lib/openapi.mts     # Ports of the hosted server's spec helpers
-                            # (dereference, required bodies, webhook events),
+                            # (dereference, input schemas, webhook events),
                             # with openapi.test.mts next to it.
 scripts/check-plugin.mts    # Claude directory gate for plugins/blindpay,
                             # used by ci.yml. Reads tracked files only.
@@ -111,13 +112,13 @@ webhook events):
    the two can never drift apart.
 2. **`toolDefinitionMap`**. The array literal body is the literal comment
    `/* __TOOL_DEFINITIONS__ */`, replaced at build time with the freshly
-   generated (and, where needed, renamed) tool entries. Never hand-edit
-   tool entries, not even in the template, fix them upstream in the API
-   spec. `WEBHOOK_EVENTS` works the same way through
+   generated tool entries (renamed where needed, schemas rebuilt from the
+   spec). Never hand-edit tool entries, not even in the template, fix them
+   upstream in the API spec. `WEBHOOK_EVENTS` works the same way through
    `/* __WEBHOOK_EVENTS__ */`.
 3. **Helpers + entrypoint** (`instanceParamName`, `clientInputSchema`,
    `registerWebhookResources`, `acquireOAuth2Token`, `executeApiTool`,
-   `jsonOrText`, `formatApiError`, `jsonSchemaToZodSchema`,
+   `formatResponseBody`, `formatApiError`, `jsonSchemaToZodSchema`,
    `getZodSchemaFromJsonSchema`, `main`, `cleanup`). Fully hand-written, never touched by the sync
    script. This is where you add new customizations.
 
@@ -153,9 +154,14 @@ can't drift:
 spec (blindpay-v2 `apps/api/src/shared/public-mcp`). Keep this package 1:1
 with it. When one of these changes there, change it here too:
 
-- **Required bodies.** Hosted requires `requestBody` whenever its schema has
-  required fields; `openapi-mcp-generator` only honors the spec flag, so
-  `sync.mts` sets the flag first (`requireBodiesWithRequiredFields`).
+- **Input schemas.** Hosted keeps the spec's schemas as they are (integer
+  types, examples) and requires `requestBody` whenever its schema has required
+  fields. `openapi-mcp-generator` turns integer into number, drops examples,
+  copies the body's description in and only honors the spec's `required`
+  flag, so `sync.mts` swaps each generated schema for
+  `inputSchemasFromOpenApi`'s.
+- **Annotations.** The four hints derived from the HTTP verb; the title is
+  only the tool's top-level `title`.
 - **Instructions.** `SERVER_INSTRUCTIONS` and, for the readonly profile,
   `READ_ONLY_SERVER_INSTRUCTIONS` are hosted `instructions.ts` word for word,
   except the sentence about the instance id. The read-only text names no tool
@@ -170,7 +176,8 @@ with it. When one of these changes there, change it here too:
 Deliberate differences:
 
 - The instance param stays required without `BLINDPAY_INSTANCE_ID`
-  (nothing else can fill it in).
+  (nothing else can fill it in). With it, the param's description says it
+  comes from `BLINDPAY_INSTANCE_ID` where hosted says "your credential".
 - `BLINDPAY_INSTANCE_ID` also fills `PostV1Presign`'s `instance_id` query
   param, as 1.8.0 did; hosted requires it.
 - A non-JSON response body (a load balancer's HTML error page; the API
