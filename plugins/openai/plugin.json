@@ -47,7 +47,6 @@
         "logo": "./assets/logo.png"
       },
       "review": {
-        "demo_recording_url": "https://drive.google.com/file/d/12uJnXQ6gCsF73NxerJKvtGQjCVhhXJ3Q/view?usp=sharing",
         "test_cases": {
           "positive": [
             {

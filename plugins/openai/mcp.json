@@ -3,7 +3,18 @@
   "mcpServers": {
     "blindpay": {
       "type": "streamable-http",
-      "url": "https://mcp.blindpay.com/mcp/readonly"
+      "url": "https://mcp.blindpay.com/mcp/readonly",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "oauth",
+            "client": {
+              "mode": "cimd"
+            },
+            "defaultScopes": ["openid", "profile", "email", "offline_access"]
+          }
+        }
+      }
     }
   }
 }

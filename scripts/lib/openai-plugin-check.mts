@@ -6,7 +6,7 @@
  * scripts/check-openai-plugin.mts reads the package and passes it in.
  */
 
-import { asObject, type Json } from './json.mts';
+import { asObject, asStrings, type Json } from './json.mts';
 import { DIRECTORY_SAFE_MCP_URLS } from './plugin-check.mts';
 
 /** The shape the tests build; the rules still read every field defensively. */
@@ -28,11 +28,37 @@ const LISTING_URLS = ['websiteURL', 'supportURL', 'privacyPolicyURL', 'termsOfSe
 const ICONS = ['logo', 'composerIcon'];
 const MAX_DEFAULT_PROMPTS = 3;
 const MAX_PROMPT_LENGTH = 128;
+// The scopes Clerk lets ChatGPT's client (https://chatgpt.com/oauth/client.json)
+// request. It answers invalid_scope to public_metadata and private_metadata,
+// which Clerk also advertises, so the plugin pins ChatGPT to these.
+const CHATGPT_SCOPES = ['openid', 'profile', 'email', 'offline_access'];
 const POSITIVE_CASES = 5;
 const NEGATIVE_CASES = 3;
 
 function filled(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
+}
+
+// Clerk has no dynamic client registration, so ChatGPT has to identify itself
+// with its client metadata document, and it must not fall back to asking for
+// every scope Clerk advertises.
+function checkAuth(name: string, server: Json): string[] {
+  const auth = asObject(asObject(asObject(server.extensions)['com.openai']).auth);
+  if (auth.type !== 'oauth') {
+    return [`MCP server "${name}" must declare extensions["com.openai"].auth with type "oauth"; BlindPay signs users in with OAuth.`];
+  }
+  const problems: string[] = [];
+  if (asObject(auth.client).mode !== 'cimd') {
+    problems.push(`MCP server "${name}" must set auth.client.mode to "cimd": Clerk accepts client metadata documents and has no dynamic registration.`);
+  }
+  const scopes = asStrings(auth.defaultScopes);
+  const refused = scopes.filter((scope) => !CHATGPT_SCOPES.includes(scope));
+  if (scopes.length === 0) {
+    problems.push(`MCP server "${name}" must pin auth.defaultScopes to ${CHATGPT_SCOPES.join(', ')}, or ChatGPT asks for every scope Clerk advertises.`);
+  } else if (refused.length > 0) {
+    problems.push(`MCP server "${name}" asks for ${refused.join(', ')} in auth.defaultScopes; Clerk refuses those for ChatGPT's client with invalid_scope.`);
+  }
+  return problems;
 }
 
 function checkServers(mcp: unknown): string[] {
@@ -47,7 +73,7 @@ function checkServers(mcp: unknown): string[] {
           `so the plugin may only use ${DIRECTORY_SAFE_MCP_URLS.join(', ')}.`,
       ];
     }
-    return [];
+    return checkAuth(name, server);
   });
 }
 
