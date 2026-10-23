@@ -50,11 +50,50 @@ export const SERVER_VERSION = '__SERVER_VERSION__';
 export const API_BASE_URL = 'https://api.blindpay.com';
 
 /**
+ * Set to the instance the API key belongs to (`in_...`). When set, it fills
+ * in the instance path parameter of every instance-scoped tool, the way the
+ * hosted server fills it in from the signed-in connection.
+ */
+const ENV_INSTANCE_ID = process.env.BLINDPAY_INSTANCE_ID || undefined;
+
+/**
+ * Server instructions sent on `initialize`. Same text as the hosted server
+ * (blindpay-v2 apps/api/src/shared/public-mcp/instructions.ts) except the
+ * second sentence, which depends on BLINDPAY_INSTANCE_ID here. Change both
+ * together.
+ */
+const INSTANCE_SENTENCE = ENV_INSTANCE_ID
+  ? 'These tools call the BlindPay API for the one instance your API key is bound to; the instance id is filled in for you.'
+  : 'These tools call the BlindPay API for the one instance your API key is bound to. Pass that instance id (in_...) as instance_id, or as id on GetV1InstancesById, PutV1InstancesById, GetV1InstancesMembers, PutV1InstancesMembersByUserId and DeleteV1InstancesMembersByUserId; ask the user for it if you do not have it.';
+
+export const SERVER_INSTRUCTIONS = `BlindPay moves money between stablecoins and local bank rails. ${INSTANCE_SENTENCE}
+
+Start with GetV1InstancesById. If type is "development", settlement is simulated with the test token USDB and no real money moves. If type is "production", every payout, transfer and payin moves real funds: confirm amounts and recipients with the user before calling a create tool.
+
+Units: request_amount and every *_amount on quotes, payouts and payins are integer cents (1000 = 10.00). Wallet balances (GetV1InstancesCustomersWalletsBalance) are whole tokens (10.5 = 10.5 USDC). Partner percentage fees are basis points (100 = 1%) and flat fees are cents. expires_at on quotes is epoch milliseconds.
+
+Payout flow: PostV1EInstancesTos returns a consent URL; the end customer must open it and accept, and the tos_id (to_...) comes back as a query parameter on your redirect_url and in the tos.accept webhook. Then PostV1InstancesCustomers with that tos_id, then PostV1InstancesCustomersBankAccounts (call GetV1AvailableBankDetails with the rail first for the required fields), then PostV1InstancesQuotes, then execute within 5 minutes, when the quote expires. Use PostV1InstancesPayoutsEvm for BlindPay-managed wallets on any network, Solana included; PostV1InstancesPayoutsSolana and PostV1InstancesPayoutsStellar are for self-custodied wallets that sign.
+
+Payin flow: PostV1InstancesPayinQuotes (minimum 1000 cents for USD and BRL; a payin quote never takes a network, the wallet decides it), then PostV1InstancesPayinsEvm with the payin_quote_id within 5 minutes.
+
+Files: customer and payout document fields take HTTPS URLs that BlindPay downloads. The URL must be publicly fetchable; data: URIs are rejected. File upload is REST-only (POST /v1/upload), not available as a tool.
+
+Retries: send an Idempotency-Key header (any unique string, reused only for a retry of the same call) on every create call that moves money, so a retry after a timeout cannot create a second payout. Do not reuse a key for a new quote.
+
+Development instances: payins settle by themselves within about 30 seconds, KYC is auto-approved, and request_amount 66600 makes a payout or payin fail while 77700 makes it refunded; any other amount completes.
+
+Webhooks: the event names and payload schemas are resources at blindpay://webhooks/events. Register an endpoint with PostV1InstancesWebhookEndpoints.
+
+Done by a person in the dashboard (app.blindpay.com), not by tools: creating API keys, creating instances, instance onboarding (KYB), inviting team members and terms of service acceptance by the end customer. Ask the user when you reach one of these.
+
+Docs for agents: https://blindpay.com/docs/llms.txt (full text at https://blindpay.com/docs/llms-full.txt).`;
+
+/**
  * MCP Server instance
  */
 const mcpServer = new McpServer(
   { name: SERVER_NAME, version: SERVER_VERSION },
-  { capabilities: { tools: {} } }
+  { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS }
 );
 
 // Access the underlying Server for handler registration
@@ -89,8 +128,19 @@ type ToolProfile = 'full' | 'readonly';
 const TOOL_PROFILE: ToolProfile =
   (process.env.BLINDPAY_MCP_PROFILE ?? 'full').toLowerCase() === 'readonly' ? 'readonly' : 'full';
 
+/**
+ * GET operations kept off the readonly profile even though the verb is
+ * read-only: one produces a wallet signature, the other returns a webhook
+ * signing secret. Same list as READ_ONLY_EXCLUDED_PATHS on the hosted
+ * /mcp/readonly endpoint.
+ */
+const READ_ONLY_EXCLUDED_PATHS = new Set([
+  '/v1/instances/{instance_id}/customers/{customer_id}/blockchain-wallets/sign-message',
+  '/v1/instances/{instance_id}/webhook-endpoints/{id}/secret',
+]);
+
 function isReadOnlyTool(def: McpToolDefinition): boolean {
-  return def.method.toLowerCase() === 'get';
+  return def.method.toLowerCase() === 'get' && !READ_ONLY_EXCLUDED_PATHS.has(def.pathTemplate);
 }
 
 function isToolInProfile(def: McpToolDefinition): boolean {
@@ -121,6 +171,49 @@ function toolAnnotations(def: McpToolDefinition): ToolAnnotations {
   };
 }
 
+/**
+ * The path parameter carrying the instance id: the first path param on a
+ * `/v1/instances/{...}` or `/v1/e/instances/{...}` route. Usually
+ * `instance_id`, `id` on `/v1/instances/{id}` and its members routes. Port of
+ * `instanceParamNameFor` in the hosted tool-gen.ts.
+ */
+function instanceParamName(def: McpToolDefinition): string | undefined {
+  if (!/^\/v1(?:\/e)?\/instances\/\{/.test(def.pathTemplate)) return undefined;
+  const firstBrace = def.pathTemplate.search(/\{/);
+  return def.executionParameters.find(
+    (p) => p.in === 'path' && def.pathTemplate.indexOf(`{${p.name}}`) === firstBrace
+  )?.name;
+}
+
+/** The instance param BLINDPAY_INSTANCE_ID fills in, when it is set. */
+function envInstanceParam(def: McpToolDefinition): string | undefined {
+  return ENV_INSTANCE_ID ? instanceParamName(def) : undefined;
+}
+
+/**
+ * With BLINDPAY_INSTANCE_ID set, the instance param stays visible but is not
+ * required, and says it is filled in: the hosted server's schema. Without it
+ * the model has to pass the instance id, so the generated schema is kept.
+ * Arguments are validated against this schema, as on the hosted server.
+ */
+function clientInputSchema(def: McpToolDefinition): any {
+  const param = envInstanceParam(def);
+  if (!param) return def.inputSchema;
+  const { required: generatedRequired = [], ...schema } = def.inputSchema;
+  const required = generatedRequired.filter((name: string) => name !== param);
+  return {
+    ...schema,
+    properties: {
+      ...schema.properties,
+      [param]: {
+        ...schema.properties?.[param],
+        description: 'Supplied automatically from BLINDPAY_INSTANCE_ID. Omit it; any value sent here is ignored.',
+      },
+    },
+    ...(required.length > 0 && { required }),
+  };
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   const toolsForClient: Tool[] = Array.from(toolDefinitionMap.values())
     .filter(isToolInProfile)
@@ -128,7 +221,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       name: def.name,
       title: toolTitle(def.name),
       description: def.description,
-      inputSchema: def.inputSchema,
+      inputSchema: clientInputSchema(def),
       annotations: toolAnnotations(def),
     }));
   return { tools: toolsForClient };
@@ -141,11 +234,76 @@ server.setRequestHandler(
     const toolDefinition = toolDefinitionMap.get(toolName);
     if (!toolDefinition || !isToolInProfile(toolDefinition)) {
       console.error(`Error: Unknown tool requested: ${toolName}`);
-      return { content: [{ type: 'text', text: `Error: Unknown tool requested: ${toolName}` }] };
+      return {
+        content: [{ type: 'text', text: `Error: Unknown tool requested: ${toolName}` }],
+        isError: true,
+      };
     }
     return await executeApiTool(toolName, toolDefinition, toolArgs ?? {}, securitySchemes);
   }
 );
+
+/** Same shape as WebhookEvent in scripts/lib/openapi.mts, which produces it. */
+interface WebhookEvent {
+  event: string;
+  description: string;
+  uri: string;
+  payloadSchema: unknown;
+}
+
+/**
+ * Every webhook event in the spec's `webhooks` section with its payload
+ * schema, spliced in by scripts/sync.mts.
+ */
+const WEBHOOK_EVENTS: WebhookEvent[] = [
+  /* __WEBHOOK_EVENTS__ */
+];
+
+const WEBHOOK_EVENTS_URI = 'blindpay://webhooks/events';
+
+/**
+ * The webhook catalog as resources: an index (names and summaries) plus one
+ * resource per event with its payload schema. Same names, URIs and text as
+ * `webhookResources` on the hosted server.
+ */
+function registerWebhookResources(): void {
+  const resources = [
+    {
+      name: 'webhook-events',
+      uri: WEBHOOK_EVENTS_URI,
+      title: 'Webhook events',
+      description: 'Every webhook event BlindPay sends, with a link to each payload schema',
+      text: JSON.stringify(
+        WEBHOOK_EVENTS.map(({ event, description, uri }) => ({ event, description, uri })),
+        null,
+        2
+      ),
+    },
+    ...WEBHOOK_EVENTS.map((event) => ({
+      name: `webhook-event-${event.event}`,
+      uri: event.uri,
+      title: `Webhook ${event.event}`,
+      description: event.description,
+      text: JSON.stringify(
+        { event: event.event, description: event.description, payload_schema: event.payloadSchema },
+        null,
+        2
+      ),
+    })),
+  ];
+  for (const resource of resources) {
+    mcpServer.registerResource(
+      resource.name,
+      resource.uri,
+      { title: resource.title, description: resource.description, mimeType: 'application/json' },
+      async (uri) => ({
+        contents: [{ uri: uri.href, mimeType: 'application/json', text: resource.text }],
+      })
+    );
+  }
+}
+
+registerWebhookResources();
 
 /**
  * Type definition for cached OAuth tokens
@@ -278,35 +436,33 @@ async function executeApiTool(
   allSecuritySchemes: Record<string, any>
 ): Promise<CallToolResult> {
   try {
-    // Auto-inject instance_id from environment if not provided
-    const defaultInstanceId = process.env.BLINDPAY_INSTANCE_ID;
-    if (
-      defaultInstanceId &&
-      definition.inputSchema?.required?.includes('instance_id') &&
-      !toolArgs.instance_id
-    ) {
-      toolArgs.instance_id = defaultInstanceId;
-      console.error(`Auto-injected instance_id from BLINDPAY_INSTANCE_ID env var`);
-    }
-
-    // Validate arguments against the input schema
+    // Validate arguments against the schema the client was given
     let validatedArgs: JsonObject;
     try {
-      const zodSchema = getZodSchemaFromJsonSchema(definition.inputSchema, toolName);
+      const zodSchema = getZodSchemaFromJsonSchema(clientInputSchema(definition), toolName);
       const argsToParse = typeof toolArgs === 'object' && toolArgs !== null ? toolArgs : {};
       validatedArgs = zodSchema.parse(argsToParse);
     } catch (error: unknown) {
       if (error instanceof ZodError) {
         const validationErrorMessage = `Invalid arguments for tool '${toolName}': ${error.errors.map((e) => `${e.path.join('.')} (${e.code}): ${e.message}`).join(', ')}`;
-        return { content: [{ type: 'text', text: validationErrorMessage }] };
+        return { content: [{ type: 'text', text: validationErrorMessage }], isError: true };
       } else {
         const errorMessage = error instanceof Error ? error.message : String(error);
         return {
           content: [
             { type: 'text', text: `Internal error during validation setup: ${errorMessage}` },
           ],
+          isError: true,
         };
       }
+    }
+
+    // BLINDPAY_INSTANCE_ID then wins over a model-supplied value, as the
+    // hosted server's credential-bound instance does: the key only works on
+    // its own instance anyway.
+    const instanceParam = envInstanceParam(definition);
+    if (instanceParam) {
+      validatedArgs = { ...validatedArgs, [instanceParam]: ENV_INSTANCE_ID };
     }
 
     // Prepare URL, query parameters, headers, and request body
@@ -322,7 +478,7 @@ async function executeApiTool(
         if (param.in === 'path') {
           urlPath = urlPath.replace(`{${param.name}}`, encodeURIComponent(String(value)));
         } else if (param.in === 'query') {
-          queryParams[param.name] = value;
+          queryParams[param.name] = String(value);
         } else if (param.in === 'header') {
           headers[param.name.toLowerCase()] = String(value);
         }
@@ -530,12 +686,17 @@ async function executeApiTool(
       );
     }
 
-    // Prepare the axios request configuration
+    // Prepare the axios request configuration. Every HTTP status resolves, so
+    // an API error comes back with its full body like a success does, and the
+    // body stays raw text for jsonOrText.
     const config: AxiosRequestConfig = {
       method: definition.method.toUpperCase(),
       url: requestUrl,
       params: queryParams,
       headers: headers,
+      validateStatus: () => true,
+      responseType: 'text',
+      transformResponse: (data) => data,
       ...(requestBodyData !== undefined && { data: requestBodyData }),
     };
 
@@ -545,43 +706,13 @@ async function executeApiTool(
     // Execute the request
     const response = await axios(config);
 
-    // Process and format the response
-    let responseText = '';
-    const contentType = response.headers['content-type']?.toLowerCase() || '';
+    const responseText = jsonOrText(typeof response.data === 'string' ? response.data : '');
 
-    // Handle JSON responses
-    if (
-      contentType.includes('application/json') &&
-      typeof response.data === 'object' &&
-      response.data !== null
-    ) {
-      try {
-        responseText = JSON.stringify(response.data, null, 2);
-      } catch (e) {
-        responseText = '[Stringify Error]';
-      }
-    }
-    // Handle string responses
-    else if (typeof response.data === 'string') {
-      responseText = response.data;
-    }
-    // Handle other response types
-    else if (response.data !== undefined && response.data !== null) {
-      responseText = String(response.data);
-    }
-    // Handle empty responses
-    else {
-      responseText = `(Status: ${response.status} - No body content)`;
-    }
-
-    // Return formatted response
+    // Same shape as the hosted server: status line, then the body; a 4xx or
+    // 5xx is a tool error.
     return {
-      content: [
-        {
-          type: 'text',
-          text: `API Response (Status: ${response.status}):\n${responseText}`,
-        },
-      ],
+      content: [{ type: 'text', text: `HTTP ${response.status}\n${responseText}` }],
+      isError: response.status >= 400,
     };
   } catch (error: unknown) {
     // Handle errors during execution
@@ -604,7 +735,7 @@ async function executeApiTool(
     console.error(`Error during execution of tool '${toolName}':`, errorMessage);
 
     // Return error message to client
-    return { content: [{ type: 'text', text: errorMessage }] };
+    return { content: [{ type: 'text', text: errorMessage }], isError: true };
   }
 }
 
@@ -641,31 +772,25 @@ main().catch((error) => {
   process.exit(1);
 });
 
+/** Pretty-prints a body that parses as JSON, whatever its content-type. */
+function jsonOrText(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
 /**
- * Formats API errors for better readability
+ * Formats an Axios error. Only a request that got no HTTP response lands
+ * here: every status resolves (see executeApiTool).
  *
  * @param error Axios error
  * @returns Formatted error message
  */
 function formatApiError(error: AxiosError): string {
   let message = 'API request failed.';
-  if (error.response) {
-    message = `API Error: Status ${error.response.status} (${error.response.statusText || 'Status text not available'}). `;
-    const responseData = error.response.data;
-    const MAX_LEN = 200;
-    if (typeof responseData === 'string') {
-      message += `Response: ${responseData.substring(0, MAX_LEN)}${responseData.length > MAX_LEN ? '...' : ''}`;
-    } else if (responseData) {
-      try {
-        const jsonString = JSON.stringify(responseData);
-        message += `Response: ${jsonString.substring(0, MAX_LEN)}${jsonString.length > MAX_LEN ? '...' : ''}`;
-      } catch {
-        message += 'Response: [Could not serialize data]';
-      }
-    } else {
-      message += 'No response body received.';
-    }
-  } else if (error.request) {
+  if (error.request) {
     message = 'API Network Error: No response received from server.';
     if (error.code) message += ` (Code: ${error.code})`;
   } else {

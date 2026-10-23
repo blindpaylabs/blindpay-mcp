@@ -17,7 +17,7 @@ Every tool is a GET. When the user asks to send, create, edit or delete anything
 
 Stop there, so the reply reads as a clear no rather than the start of a transfer.
 
-The user picked one instance at sign-in, and every tool fills in `instance_id` (and the `id` of `GetV1InstancesMembers`) from it. Leave those arguments out.
+The user picked one instance at sign-in, and every tool fills in `instance_id` (and the `id` of `GetV1InstancesById` and `GetV1InstancesMembers`) from it. Leave those arguments out.
 
 ## Cents
 

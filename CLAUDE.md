@@ -30,13 +30,15 @@ anywhere in this path; every step is a plain script.
    `api-sync` event.
 2. `api-sync.yml` consumes the event and runs `npm run sync`
    (`scripts/sync.mts`), which:
-   - runs `openapi-mcp-generator` against the fetched spec,
+   - sets `requestBody.required` on a temp copy of the spec for every body
+     whose schema has required fields (see "Parity with the hosted server"),
+   - runs `openapi-mcp-generator` against that copy,
    - extracts its `toolDefinitionMap` block,
    - deterministically shortens any tool name over 52 chars (see below),
-   - splices that map into `src/index.template.ts` to produce `src/index.ts`,
-   - diffs the new tool-name set against the previously committed one to
-     decide a minor (names added/removed) vs patch version bump, and writes
-     that version into both `package.json` and `SERVER_VERSION`.
+   - splices that map, plus the spec's webhook events, into
+     `src/index.template.ts` to produce `src/index.ts`,
+   - picks the version bump (see "Version bump") and writes that version
+     into both `package.json` and `SERVER_VERSION`.
    Any spec shape the script can't map (missing map markers, a name it
    can't shorten under the limit, a duplicate name) is a hard failure, not
    a best guess.
@@ -51,8 +53,10 @@ anywhere in this path; every step is a plain script.
 
 ```
 src/index.template.ts       # Hand-maintained template: everything in
-                            # src/index.ts except the tool map and version,
-                            # with /* __TOOL_DEFINITIONS__ */ and
+                            # src/index.ts except the tool map, webhook
+                            # events and version, with
+                            # /* __TOOL_DEFINITIONS__ */,
+                            # /* __WEBHOOK_EVENTS__ */ and
                             # __SERVER_VERSION__ markers. Edit THIS for any
                             # behavioral change; src/index.ts is generated.
 src/index.ts                # Built by scripts/sync.mts. Do not hand-edit.
@@ -62,7 +66,11 @@ scripts/sync.mts            # The deterministic build: generator -> extract
                             # -> rename -> splice -> version bump.
 scripts/check-tool-names.mts  # Standalone 52-char gate, used by ci.yml too.
 scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, semver
-                            # bump) used by both scripts above.
+                            # bump) used by both scripts above, with
+                            # tool-map.test.mts next to it.
+scripts/lib/openapi.mts     # Ports of the hosted server's spec helpers
+                            # (dereference, required bodies, webhook events),
+                            # with openapi.test.mts next to it.
 scripts/check-plugin.mts    # Claude directory gate for plugins/blindpay,
                             # used by ci.yml. Reads tracked files only.
 scripts/lib/plugin-check.mts  # Pure rules behind check-plugin, with
@@ -104,10 +112,12 @@ data-driven rather than hand-copied:
    `/* __TOOL_DEFINITIONS__ */`, replaced at build time with the freshly
    generated (and, where needed, renamed) tool entries. Never hand-edit
    tool entries, not even in the template, fix them upstream in the API
-   spec.
-3. **Helpers + entrypoint** (`acquireOAuth2Token`, `executeApiTool`,
-   `formatApiError`, `jsonSchemaToZodSchema`, `getZodSchemaFromJsonSchema`,
-   `main`, `cleanup`). Fully hand-written, never touched by the sync
+   spec. `WEBHOOK_EVENTS` works the same way through
+   `/* __WEBHOOK_EVENTS__ */`.
+3. **Helpers + entrypoint** (`instanceParamName`, `clientInputSchema`,
+   `registerWebhookResources`, `acquireOAuth2Token`, `executeApiTool`,
+   `jsonOrText`, `formatApiError`, `jsonSchemaToZodSchema`,
+   `getZodSchemaFromJsonSchema`, `main`, `cleanup`). Fully hand-written, never touched by the sync
    script. This is where you add new customizations.
 
 ## Customizations baked into the template
@@ -126,11 +136,35 @@ can't drift:
    `if (typeof ... === 'undefined')` block.
 4. **`BLINDPAY_API_KEY` fallback** in both the bearer-auth check and the
    bearer-auth apply sections of `executeApiTool`.
-5. **`BLINDPAY_INSTANCE_ID` auto-inject** at the top of `executeApiTool`.
+5. **`BLINDPAY_INSTANCE_ID` auto-inject** at the top of `executeApiTool`,
+   into the instance path param (`instance_id`, or `id` on
+   `/v1/instances/{id}` routes). It overrides a model-supplied value, and
+   `tools/list` then marks the param optional, as the hosted server does.
 6. **Hardcoded `API_BASE_URL = 'https://api.blindpay.com'`** instead of the
    generator's `process.env.API_BASE_URL || ''`.
 7. **`SERVER_NAME = '@blindpay/mcp'`**, kept alongside the `__SERVER_VERSION__`
    marker described above.
+
+## Parity with the hosted server
+
+`https://mcp.blindpay.com/mcp` is generated in-process from the same public
+spec (blindpay-v2 `apps/api/src/shared/public-mcp`). Keep this package 1:1
+with it. When one of these changes there, change it here too:
+
+- **Required bodies.** Hosted requires `requestBody` whenever its schema has
+  required fields; `openapi-mcp-generator` only honors the spec flag, so
+  `sync.mts` sets the flag first (`requireBodiesWithRequiredFields`).
+- **Instructions.** `SERVER_INSTRUCTIONS` is hosted `instructions.ts` word
+  for word, except the sentence about the instance id.
+- **Webhook resources.** Same names, URIs and text as hosted
+  `webhook-resources.ts`; the data comes from the spec's `webhooks` section.
+- **Readonly profile.** GET tools minus `READ_ONLY_EXCLUDED_PATHS`, the
+  same list `/mcp/readonly` uses.
+- **Tool results.** `HTTP <status>` then the full body, `isError` on 4xx/5xx.
+
+Deliberate differences: the instance param stays required without
+`BLINDPAY_INSTANCE_ID` (nothing else can fill it in), `SERVER_NAME`, and the
+version, which is this package's npm semver, not the hosted tool-surface one.
 
 ## Tool name length limit (52 chars)
 
@@ -150,9 +184,10 @@ path in the API spec, not another shortening rule here.
 
 ## Version bump
 
-`scripts/sync.mts` compares the new tool-name set against the previously
-committed one: **minor** if any name was added or removed, **patch**
-otherwise. Never major, that's a deliberate human decision made directly in
+`scripts/sync.mts` compares the build against the committed one: **none**
+if `src/index.ts` would come out identical (re-syncing the same spec is a
+no-op), else **minor** if any tool name was added or removed, else
+**patch**. Never major, that's a deliberate human decision made directly in
 `package.json` outside the sync pipeline.
 
 ## Claude directory plugin and connector

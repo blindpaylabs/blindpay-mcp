@@ -128,11 +128,12 @@ export function assertToolNamesWithinLimit(names: string[]): void {
   }
 }
 
-export type VersionBump = 'major' | 'minor' | 'patch';
+export type VersionBump = 'major' | 'minor' | 'patch' | 'none';
 
 /**
  * minor if the set of tool names changed (added or removed), patch otherwise.
  * Never major — major bumps for this package are a deliberate human decision.
+ * sync.mts picks 'none' itself when the build is unchanged.
  */
 export function decideVersionBump(oldNames: string[], newNames: string[]): VersionBump {
   const oldSet = new Set(oldNames);
@@ -146,6 +147,7 @@ export function bumpSemver(version: string, bump: VersionBump): string {
   const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
   if (!m) throw new Error(`Version "${version}" is not plain semver (major.minor.patch).`);
   let [major, minor, patch] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (bump === 'none') return version;
   if (bump === 'major') {
     major += 1;
     minor = 0;
