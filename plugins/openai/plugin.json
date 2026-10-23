@@ -1,32 +1,45 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "blindpay",
-  "version": "1.0.0",
-  "description": "Read-only access to your BlindPay stablecoin payment operations: payouts, payins, transfers, wallets, customers, bank accounts, fees, limits and payment rails.",
+  "version": "1.2.0",
+  "description": "Read-only view of your BlindPay stablecoin payment operations: payouts, payins, transfers, wallets, customers, bank accounts, fees, limits and payment rails.",
   "author": {
-    "name": "BlindPay",
+    "name": "Blind Pay, Inc.",
     "url": "https://blindpay.com"
   },
   "homepage": "https://blindpay.com/docs",
   "repository": "https://github.com/blindpaylabs/blindpay-mcp",
   "license": "MIT",
-  "keywords": ["blindpay", "stablecoin", "payments", "payouts", "payins", "fintech"],
+  "keywords": [
+    "blindpay",
+    "stablecoin",
+    "payments",
+    "payouts",
+    "payins",
+    "finance"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "BlindPay",
-        "shortDescription": "Track stablecoin payments",
+        "shortDescription": "Read-only BlindPay payments",
         "longDescription": "Check your BlindPay stablecoin payment operations without leaving ChatGPT. Look up payouts, payins and transfers and their status, see wallet balances and yield, review customers, bank accounts and virtual accounts, and check fees, limits and the payment rails available in each country.\n\nSign in with your BlindPay account and pick the instance you want to query. The plugin only reads data: it cannot send payouts, move funds or change any setting. It is made for teams already using BlindPay who want quick answers about their payment activity.",
-        "developerName": "BlindPay",
+        "developerName": "Blind Pay, Inc.",
         "category": "Finance",
+        "capabilities": [
+          "Look up payouts, payins and transfers",
+          "Check wallet balances and yield",
+          "Review customers and bank accounts",
+          "List payment rails by country"
+        ],
         "websiteURL": "https://blindpay.com",
         "supportURL": "https://blindpay.com/contact",
         "privacyPolicyURL": "https://blindpay.com/privacy-policy",
         "termsOfServiceURL": "https://blindpay.com/terms-of-service",
         "defaultPrompt": [
-          "List my last 5 payouts with their status and amount.",
-          "Which payment rails can I use to pay out to Brazil?",
-          "What is the wallet balance of my first customer?"
+          "List my payouts from the last 7 days grouped by status.",
+          "Which payout rails and bank details does BlindPay support for Brazil?",
+          "Show my wallets and their current balances."
         ],
         "brandColor": "#09090B",
         "brandColorDark": "#F7F8F8",
@@ -37,52 +50,56 @@
         "test_cases": {
           "positive": [
             {
-              "description": "List recent payouts with status and amount.",
-              "prompt": "List my last 5 payouts with their status and amount.",
-              "tools_triggered": ["GetV1InstancesPayouts"],
-              "expected_behavior": "Returns up to five recent payouts with status and amount, amounts converted from cents."
+              "description": "List recent payouts",
+              "prompt": "List the payouts on my instance and group them by status.",
+              "tools_triggered": "GetV1InstancesPayouts",
+              "expected_behavior": "Return the instance's payouts with id, amount, currency and status, grouped by status."
             },
             {
-              "description": "Find the first customer and summarize wallet balances and yield.",
-              "prompt": "What is the balance and yield status of each wallet for my first customer?",
-              "tools_triggered": ["GetV1InstancesCustomers", "GetV1InstancesCustomersWallets", "GetV1InstancesCustomersWalletsBalance", "GetV1InstancesCustomersWalletsYield"],
-              "expected_behavior": "Lists customers to identify the first one, then returns each wallet's balance and yield status."
+              "description": "Inspect one payout",
+              "prompt": "Show the details and current status of my most recent payout.",
+              "tools_triggered": "GetV1InstancesPayouts, GetV1InstancesPayoutsById",
+              "expected_behavior": "Find the newest payout, then return its amounts, recipient bank account, status and tracking steps."
             },
             {
-              "description": "List supported payout rails for Brazil.",
-              "prompt": "Which payment rails can I use to pay out to Brazil?",
-              "tools_triggered": ["GetV1AvailableRails"],
-              "expected_behavior": "Returns the available payout rails for Brazil."
+              "description": "Payout rails and PIX bank details",
+              "prompt": "Use the BlindPay app: list the payout rails BlindPay supports, then get the bank details required for the PIX rail.",
+              "tools_triggered": "GetV1AvailableRails, GetV1AvailableBankDetails",
+              "expected_behavior": "List every supported payout rail with its country, then the bank details PIX requires (the PIX key) and its validation rules."
             },
             {
-              "description": "Review recent payins and their statuses.",
-              "prompt": "Show my last 5 payins with status and amount.",
-              "tools_triggered": ["GetV1InstancesPayins"],
-              "expected_behavior": "Returns recent payins with status and amount."
+              "description": "Customer blockchain wallets",
+              "prompt": "Use the BlindPay app to list the blockchain wallets of my first two customers, with network and address.",
+              "tools_triggered": "GetV1InstancesCustomers, GetV1InstancesCustomersBlockchainWallets",
+              "expected_behavior": "Find the first two customers, then list each one's blockchain wallets with name, network and address."
             },
             {
-              "description": "Review recent transfer history.",
-              "prompt": "Show my most recent transfers with their status and amount.",
-              "tools_triggered": ["GetV1InstancesTransfers"],
-              "expected_behavior": "Returns recent transfers with status and amount."
+              "description": "Customers and bank accounts",
+              "prompt": "Use the BlindPay app to list my customers and the bank accounts of the first customer.",
+              "tools_triggered": "GetV1InstancesCustomers, GetV1InstancesCustomersBankAccounts",
+              "expected_behavior": "List the instance's customers with country and KYC status, then the first customer's bank accounts with rail, status and account details."
             }
           ],
           "negative": [
             {
-              "description": "Do not initiate a payout: no tool can move money, so the plugin declines and points to the BlindPay dashboard.",
-              "prompt": "Send 100 USDC to my first receiver."
+              "description": "Money movement is not supported",
+              "prompt": "Use the BlindPay app to send 500 USDC to my customer Emma Williams' bank account."
             },
             {
-              "description": "Do not update customer records: the plugin can look up customers but cannot change them.",
-              "prompt": "Change my first customer's address to 123 Main Street."
+              "description": "Creating records is not supported",
+              "prompt": "Create a new customer named Maria Silva."
             },
             {
-              "description": "Do not answer unrelated requests: weather is outside the plugin's workflows, so it is not invoked.",
-              "prompt": "What is the weather in São Paulo today?"
+              "description": "Changing settings is not supported",
+              "prompt": "Delete my webhook endpoints."
             }
           ]
         },
-        "commerce": false
+        "commerce": false,
+        "commerce_description": "This plugin only reads payment data. It does not sell products, initiate payments or move funds."
+      },
+      "publication": {
+        "release_notes": "Ask ChatGPT about your BlindPay account: payouts and their status, customers and their bank accounts, blockchain wallets, and the payout rails BlindPay supports with the bank details each one needs. Read-only: it can't send money or change anything in your account."
       }
     }
   }

@@ -4,6 +4,12 @@ import { checkOpenAiPlugin, type OpenAiPluginSnapshot } from './openai-plugin-ch
 
 const POSITIVE = { description: 'd', prompt: 'p', tools_triggered: ['GetV1InstancesPayouts'], expected_behavior: 'e' };
 const NEGATIVE = { description: 'd', prompt: 'p' };
+const AUTH = { type: 'oauth', client: { mode: 'cimd' }, defaultScopes: ['openid', 'profile', 'email', 'offline_access'] };
+
+function withAuth(auth: unknown): OpenAiPluginSnapshot {
+  const url = 'https://mcp.blindpay.com/mcp/readonly';
+  return { ...validSnapshot(), mcp: { mcpServers: { blindpay: { type: 'streamable-http', url, extensions: { 'com.openai': { auth } } } } } };
+}
 
 function validSnapshot(): OpenAiPluginSnapshot {
   return {
@@ -31,7 +37,7 @@ function validSnapshot(): OpenAiPluginSnapshot {
         },
       },
     },
-    mcp: { mcpServers: { blindpay: { type: 'streamable-http', url: 'https://mcp.blindpay.com/mcp/readonly' } } },
+    mcp: { mcpServers: { blindpay: { type: 'streamable-http', url: 'https://mcp.blindpay.com/mcp/readonly', extensions: { 'com.openai': { auth: AUTH } } } } },
     filePaths: ['plugin.json', 'mcp.json', 'assets/logo.png', 'assets/composer-icon.png'],
   };
 }
@@ -54,6 +60,18 @@ test('the money-moving server is refused, and so is a package with no server', (
   const full = { ...validSnapshot(), mcp: { mcpServers: { blindpay: { type: 'streamable-http', url: 'https://mcp.blindpay.com/mcp' } } } };
   assert.equal(problemsMatching(full, /money/).length, 1);
   assert.equal(problemsMatching({ ...validSnapshot(), mcp: { mcpServers: {} } }, /no MCP server/).length, 1);
+});
+
+test('the server must declare OAuth through a client metadata document', () => {
+  assert.equal(problemsMatching(withAuth(undefined), /OAuth/).length, 1);
+  assert.equal(problemsMatching(withAuth({ ...AUTH, client: { mode: 'dcr' } }), /cimd/).length, 1);
+  assert.equal(problemsMatching(withAuth({ ...AUTH, type: 'api_key' }), /OAuth/).length, 1);
+});
+
+test('defaultScopes may only ask for scopes Clerk lets ChatGPT request', () => {
+  assert.equal(problemsMatching(withAuth({ ...AUTH, defaultScopes: ['openid', 'public_metadata'] }), /public_metadata/).length, 1);
+  assert.equal(problemsMatching(withAuth({ ...AUTH, defaultScopes: [] }), /defaultScopes/).length, 1);
+  assert.equal(problemsMatching(withAuth({ ...AUTH, defaultScopes: undefined }), /defaultScopes/).length, 1);
 });
 
 test('a server must be streamable-http', () => {

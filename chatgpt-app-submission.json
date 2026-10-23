@@ -3,7 +3,7 @@
   "schema_version": 1,
   "app_info": {
     "display_name": "BlindPay",
-    "subtitle": "Track stablecoin payments",
+    "subtitle": "Read-only BlindPay payments",
     "description": "Check your BlindPay stablecoin payment operations without leaving ChatGPT. Look up payouts, payins and transfers and their status, see wallet balances and yield, review customers, bank accounts and virtual accounts, and check fees, limits and the payment rails available in each country.\n\nSign in with your BlindPay account and pick the instance you want to query. The plugin only reads data: it cannot send payouts, move funds or change any setting. It is made for teams already using BlindPay who want quick answers about their payment activity.",
     "category": "FINANCE"
   },
@@ -33,6 +33,18 @@
       }
     },
     "GetV1InstancesOnboardingOwnershipDocuments": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Reads data from BlindPay and returns it without changing records or initiating transactions.",
+        "open_world_justification": "Calls the BlindPay API, an external service, to read the authenticated user’s instance data or BlindPay reference data.",
+        "destructive_justification": "Cannot create, update, delete, send, or execute financial operations."
+      }
+    },
+    "GetV1InstancesById": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
@@ -236,18 +248,6 @@
         "destructive_justification": "Cannot create, update, delete, send, or execute financial operations."
       }
     },
-    "GetV1EPayoutsById": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": true,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Reads data from BlindPay and returns it without changing records or initiating transactions.",
-        "open_world_justification": "Calls the BlindPay API, an external service, to read the authenticated user’s instance data or BlindPay reference data.",
-        "destructive_justification": "Cannot create, update, delete, send, or execute financial operations."
-      }
-    },
     "GetV1InstancesPayouts": {
       "annotations": {
         "readOnlyHint": true,
@@ -261,18 +261,6 @@
       }
     },
     "GetV1InstancesPayinsById": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": true,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Reads data from BlindPay and returns it without changing records or initiating transactions.",
-        "open_world_justification": "Calls the BlindPay API, an external service, to read the authenticated user’s instance data or BlindPay reference data.",
-        "destructive_justification": "Cannot create, update, delete, send, or execute financial operations."
-      }
-    },
-    "GetV1EPayinsById": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
@@ -332,6 +320,18 @@
         "destructive_justification": "Cannot create, update, delete, send, or execute financial operations."
       }
     },
+    "GetV1InstancesCustomersWalletsDeposits": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Reads data from BlindPay and returns it without changing records or initiating transactions.",
+        "open_world_justification": "Calls the BlindPay API, an external service, to read the authenticated user’s instance data or BlindPay reference data.",
+        "destructive_justification": "Cannot create, update, delete, send, or execute financial operations."
+      }
+    },
     "GetV1InstancesCustomersWalletsYieldHistory": {
       "annotations": {
         "readOnlyHint": true,
@@ -369,18 +369,6 @@
       }
     },
     "GetV1InstancesTransfersById": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": true,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Reads data from BlindPay and returns it without changing records or initiating transactions.",
-        "open_world_justification": "Calls the BlindPay API, an external service, to read the authenticated user’s instance data or BlindPay reference data.",
-        "destructive_justification": "Cannot create, update, delete, send, or execute financial operations."
-      }
-    },
-    "GetV1ETransfersById": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
@@ -539,69 +527,69 @@
   },
   "test_cases": [
     {
-      "description": "List recent payouts with status and amount.",
-      "user_prompt": "List my last 5 payouts with their status and amount.",
+      "description": "List recent payouts",
+      "user_prompt": "List the payouts on my instance and group them by status.",
       "file_attachment_urls": null,
       "tools_triggered": "GetV1InstancesPayouts",
-      "expected_output": "Returns up to five recent payouts with status and amount.",
+      "expected_output": "Return the instance's payouts with id, amount, currency and status, grouped by status.",
       "expected_output_url": null
     },
     {
-      "description": "Find the first customer and summarize wallet balances and yield.",
-      "user_prompt": "What is the balance and yield status of each wallet for my first customer?",
+      "description": "Inspect one payout",
+      "user_prompt": "Show the details and current status of my most recent payout.",
       "file_attachment_urls": null,
-      "tools_triggered": "GetV1InstancesCustomers, GetV1InstancesCustomersWallets, GetV1InstancesCustomersWalletsBalance, GetV1InstancesCustomersWalletsYield",
-      "expected_output": "Lists customers to identify the first one, then returns each wallet’s balance and yield status.",
+      "tools_triggered": "GetV1InstancesPayouts, GetV1InstancesPayoutsById",
+      "expected_output": "Find the newest payout, then return its amounts, recipient bank account, status and tracking steps.",
       "expected_output_url": null
     },
     {
-      "description": "List supported payout rails for Brazil.",
-      "user_prompt": "Which payment rails can I use to pay out to Brazil?",
+      "description": "Payout rails and PIX bank details",
+      "user_prompt": "Use the BlindPay app: list the payout rails BlindPay supports, then get the bank details required for the PIX rail.",
       "file_attachment_urls": null,
-      "tools_triggered": "GetV1AvailableRails",
-      "expected_output": "Returns the available payout rails for Brazil.",
+      "tools_triggered": "GetV1AvailableRails, GetV1AvailableBankDetails",
+      "expected_output": "List every supported payout rail with its country, then the bank details PIX requires (the PIX key) and its validation rules.",
       "expected_output_url": null
     },
     {
-      "description": "Review recent payins and their statuses.",
-      "user_prompt": "Show my last 5 payins with status and amount.",
+      "description": "Customer blockchain wallets",
+      "user_prompt": "Use the BlindPay app to list the blockchain wallets of my first two customers, with network and address.",
       "file_attachment_urls": null,
-      "tools_triggered": "GetV1InstancesPayins",
-      "expected_output": "Returns recent payins with status and amount.",
+      "tools_triggered": "GetV1InstancesCustomers, GetV1InstancesCustomersBlockchainWallets",
+      "expected_output": "Find the first two customers, then list each one's blockchain wallets with name, network and address.",
       "expected_output_url": null
     },
     {
-      "description": "Review recent transfer history.",
-      "user_prompt": "Show my most recent transfers with their status and amount.",
+      "description": "Customers and bank accounts",
+      "user_prompt": "Use the BlindPay app to list my customers and the bank accounts of the first customer.",
       "file_attachment_urls": null,
-      "tools_triggered": "GetV1InstancesTransfers",
-      "expected_output": "Returns recent transfers with status and amount.",
+      "tools_triggered": "GetV1InstancesCustomers, GetV1InstancesCustomersBankAccounts",
+      "expected_output": "List the instance's customers with country and KYC status, then the first customer's bank accounts with rail, status and account details.",
       "expected_output_url": null
     }
   ],
   "negative_test_cases": [
     {
-      "description": "Do not initiate a payout.",
-      "user_prompt": "Send 100 USDC to my first receiver.",
+      "description": "Money movement is not supported",
+      "user_prompt": "Use the BlindPay app to send 500 USDC to my customer Emma Williams' bank account.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "Declines because the read-only app cannot send payouts or move funds.",
+      "expected_output": "Declines: the plugin only reads data and cannot do this.",
       "expected_output_url": null
     },
     {
-      "description": "Do not update customer records.",
-      "user_prompt": "Change my first customer’s address to 123 Main Street.",
+      "description": "Creating records is not supported",
+      "user_prompt": "Create a new customer named Maria Silva.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "Explains that the app can look up customers but cannot change customer records.",
+      "expected_output": "Declines: the plugin only reads data and cannot do this.",
       "expected_output_url": null
     },
     {
-      "description": "Do not answer unrelated requests.",
-      "user_prompt": "What is the weather in São Paulo today?",
+      "description": "Changing settings is not supported",
+      "user_prompt": "Delete my webhook endpoints.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because weather is outside its supported workflows.",
+      "expected_output": "Declines: the plugin only reads data and cannot do this.",
       "expected_output_url": null
     }
   ]

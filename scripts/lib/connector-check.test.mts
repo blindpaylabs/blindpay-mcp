@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  advertisedOidcScopes,
   classifyAuthorizeChain,
   evaluateConnector,
   parseResourceMetadataUrl,
@@ -16,8 +17,13 @@ const AUTHORIZE: AuthorizeObservations = {
   claudeAi: 'sign-in',
   claudeCode: ['sign-in', 'sign-in', 'sign-in'],
   vscode: ['sign-in', 'sign-in'],
+  chatgpt: 'sign-in',
   undeclaredRedirects: ['refused', 'refused', 'refused'],
 };
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value as Record<string, unknown>;
+}
 
 function validObservations(): ConnectorObservations {
   return {
@@ -32,6 +38,7 @@ function validObservations(): ConnectorObservations {
       code_challenge_methods_supported: ['S256'],
       token_endpoint_auth_methods_supported: ['client_secret_basic', 'none'],
       client_id_metadata_document_supported: true,
+      authorization_response_iss_parameter_supported: true,
     },
     slowestRequestMs: 950,
     bogusRefresh: { status: 400, error: 'invalid_grant' },
@@ -149,6 +156,26 @@ test('sign-in must start for VS Code on both its loopback and its web redirect',
   assert.equal(problemsMatching(o, /VS Code/).length, 0);
 });
 
+test('the scopes ChatGPT asks for are the OIDC scopes the authorization server advertises', () => {
+  const clerk = { scopes_supported: ['openid', 'profile', 'email', 'public_metadata', 'private_metadata', 'offline_access'] };
+  assert.equal(advertisedOidcScopes(clerk), 'openid profile email offline_access');
+  assert.equal(advertisedOidcScopes({ scopes_supported: ['files:read'] }), '');
+  assert.equal(advertisedOidcScopes(null), '');
+});
+
+test("ChatGPT's shared client is only used when the authorization server returns iss on every response", () => {
+  const o = validObservations();
+  const withoutIss = { ...asRecord(o.authServerMetadata), authorization_response_iss_parameter_supported: undefined };
+  assert.equal(problemsMatching({ ...o, authServerMetadata: withoutIss }, /authorization_response_iss_parameter_supported/).length, 1);
+});
+
+test("sign-in must start for ChatGPT's shared client and stable redirect", () => {
+  const o = validObservations();
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, chatgpt: 'sent-to-redirect' } }, /ChatGPT/).length, 1);
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, chatgpt: 'refused' } }, /ChatGPT/).length, 1);
+  assert.equal(problemsMatching(o, /ChatGPT/).length, 0);
+});
+
 test('every undeclared redirect must be refused, and never followed back to the client', () => {
   const o = validObservations();
   const accepted: AuthorizeObservations = { ...AUTHORIZE, undeclaredRedirects: ['refused', 'sign-in', 'refused'] };
@@ -161,7 +188,7 @@ test('when discovery fails, its problems are reported and the skipped sign-in ch
   const o = { ...validObservations(), resourceMetadata: null, authServerMetadata: null, bogusRefresh: null, authorize: null };
   const problems = evaluateConnector(o);
   assert.ok(problems.some((p) => /resource/.test(p)));
-  assert.ok(!problems.some((p) => /invalid_grant|claude\.ai|Claude Code|VS Code/.test(p)));
+  assert.ok(!problems.some((p) => /invalid_grant|claude\.ai|Claude Code|VS Code|ChatGPT/.test(p)));
   assert.equal(problems.filter((p) => /not checked/.test(p)).length, 1);
 });
 

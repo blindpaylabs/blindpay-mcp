@@ -1,8 +1,9 @@
 /**
- * Pure rules for the remote MCP connector the Claude directory lists
- * (https://mcp.blindpay.com/mcp/readonly). They encode the parts of Claude's
- * OAuth client that are stricter than the MCP spec: see
- * https://claude.com/docs/connectors/building/authentication. No I/O here;
+ * Pure rules for the remote MCP connector the Claude and OpenAI directories
+ * list (https://mcp.blindpay.com/mcp/readonly). They encode the parts of
+ * Claude's, VS Code's and ChatGPT's OAuth clients that are stricter than the
+ * MCP spec: see https://claude.com/docs/connectors/building/authentication and
+ * https://developers.openai.com/plugins/build/auth. No I/O here;
  * scripts/check-connector.mts makes the requests and passes what it saw.
  */
 
@@ -28,6 +29,13 @@ export interface AuthorizeObservations {
    * gallery installs into, and it signs in with CIMD too.
    */
   vscode: AuthorizeOutcome[];
+  /**
+   * ChatGPT's client metadata document and its stable redirect, asking for
+   * the scopes ChatGPT requests: OpenAI's auth docs say it asks for every
+   * OIDC scope the authorization server advertises. A scope its client may
+   * not request comes back as error=invalid_scope on the redirect.
+   */
+  chatgpt: AuthorizeOutcome;
   /** One outcome per redirect the client never declared; each must be refused. */
   undeclaredRedirects: AuthorizeOutcome[];
 }
@@ -44,6 +52,17 @@ export interface ConnectorObservations {
   bogusRefresh: { status: number; error: unknown } | null;
   /** null when discovery failed before /authorize could be found. */
   authorize: AuthorizeObservations | null;
+}
+
+// The OIDC Core scopes, in the order a client usually lists them. Provider
+// specific scopes (Clerk's public_metadata, private_metadata) are not OIDC
+// scopes, so ChatGPT leaves them out.
+const OIDC_SCOPES = ['openid', 'profile', 'email', 'address', 'phone', 'offline_access'];
+
+/** The OIDC scopes an authorization server advertises, space-separated, as ChatGPT would request them. */
+export function advertisedOidcScopes(authServerMetadata: unknown): string {
+  const advertised = asStrings(asObject(authServerMetadata).scopes_supported);
+  return OIDC_SCOPES.filter((scope) => advertised.includes(scope)).join(' ');
 }
 
 export function parseResourceMetadataUrl(wwwAuthenticate: string | null): string | null {
@@ -96,6 +115,16 @@ function checkAuthServer({ authServerMetadata }: ConnectorObservations): string[
   if (!acceptsClientMetadataDocuments && typeof metadata.registration_endpoint !== 'string') {
     problems.push('Claude has no way to register: advertise CIMD with "none" in token_endpoint_auth_methods_supported, or expose a registration_endpoint.');
   }
+  // OpenAI's auth docs: ChatGPT uses https://chatgpt.com/oauth/client.json and
+  // its stable redirect only when the authorization server returns iss on
+  // every authorization response. Otherwise it switches to a per-connector
+  // client and callback, which the ChatGPT probe below can't reproduce.
+  if (typeof metadata.issuer === 'string' && metadata.authorization_response_iss_parameter_supported !== true) {
+    problems.push(
+      'authorization_response_iss_parameter_supported is not true, so ChatGPT signs in with a per-connector client and callback ' +
+        'that this check does not probe; the ChatGPT result below says nothing about it.',
+    );
+  }
   return problems;
 }
 
@@ -134,6 +163,12 @@ function checkAuthorize({ authorize }: ConnectorObservations): string[] {
   if (vscodeMisses.length > 0) {
     problems.push(`Sign-in from VS Code failed for ${vscodeMisses.length} of ${authorize.vscode.length} redirects; accept its client metadata document and the redirects it declares.`);
   }
+  if (authorize.chatgpt !== 'sign-in') {
+    problems.push(
+      `Sign-in from ChatGPT ended as "${authorize.chatgpt}"; accept https://chatgpt.com/oauth/client.json, ` +
+        'its redirect https://chatgpt.com/connector_platform_oauth_redirect and every OIDC scope the authorization server advertises.',
+    );
+  }
   const accepted = authorize.undeclaredRedirects.filter((outcome) => outcome !== 'refused');
   if (accepted.length > 0) {
     problems.push(`The authorization server let ${accepted.length} undeclared redirect(s) through (${accepted.join(', ')}); it must check redirect_uri against the client metadata.`);
@@ -141,7 +176,7 @@ function checkAuthorize({ authorize }: ConnectorObservations): string[] {
   return problems;
 }
 
-/** Returns one human-readable problem per broken rule; an empty list means Claude can sign in. */
+/** Returns one human-readable problem per broken rule; an empty list means every probed client can sign in. */
 export function evaluateConnector(observations: ConnectorObservations): string[] {
   return [
     ...checkChallenge(observations),
