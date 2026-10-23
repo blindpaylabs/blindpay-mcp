@@ -1,6 +1,6 @@
 # BlindPay read-only tools
 
-All 43 tools the read-only BlindPay MCP server exposes, grouped by what they answer. "Needs" lists the required arguments; "Filters" lists the optional ones.
+All 42 tools the read-only BlindPay MCP server exposes, grouped by what they answer. "Needs" lists the required arguments; "Filters" lists the optional ones.
 
 "Paging" means `limit`, `offset` (a string from 0, 10, 50, 100, 200, 500, 1000), `starting_after` and `ending_before`; those lists return `{ data, pagination }`. Lists without paging return a plain array.
 
@@ -100,8 +100,7 @@ All 43 tools the read-only BlindPay MCP server exposes, grouped by what they ans
 | `GetV1InstancesOnboardingBusinessProfile` | | | The instance's business profile |
 | `GetV1InstancesOnboardingOwnershipDocuments` | | | Ownership documents submitted during onboarding |
 | `GetV1InstancesWebhookEndpoints` | | | Webhook endpoint URLs and the events they receive |
-| `GetV1InstancesWebhookEndpointsPortalAccess` | | | A sign-in URL for the webhook portal. Share it only on explicit request |
 
 ## Outside this server
 
-Writes of any kind, quotes, wallet message signing and webhook signing secrets live on the full BlindPay API and dashboard (https://app.blindpay.com), not here.
+Writes of any kind, quotes, wallet message signing, webhook signing secrets and webhook portal links live on the full BlindPay API and dashboard (https://app.blindpay.com), not here.

@@ -21,7 +21,7 @@ OpenAI's plugin guidelines list "Execution of money transfers, crypto transfers,
 
 - Server URL for every field: `https://mcp.blindpay.com/mcp/readonly`
 - Auth: OAuth 2.1 with PKCE (sign in with a BlindPay account, then pick an instance)
-- Surface: 43 GET tools, annotated `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: true`. Only wallet message signing and the webhook signing secret are excluded. `/mcp/readonly` is shared with every client that uses it (Claude, auth.md discovery), so this submission must match it as deployed; responses are returned in full. Rebuild the `tools` block in `chatgpt-app-submission.json` from the public server card (`https://mcp.blindpay.com/.well-known/mcp/server-card.json`: read-only tools minus those two) whenever the API changes.
+- Surface: 42 GET tools, annotated `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: true`. Wallet message signing, the webhook signing secret and the webhook portal-access link are excluded, and JSON responses come back without a top-level `trace_id`. `/mcp/readonly` is shared with every client that uses it (Claude, auth.md discovery), so this submission must match it as deployed; responses are returned in full. Rebuild the `tools` block in `chatgpt-app-submission.json` from the public server card (`https://mcp.blindpay.com/.well-known/mcp/server-card.json`: read-only tools minus those three) whenever the API changes.
 - Copy must never say the plugin sends, pays, or moves money.
 
 ## Step 1: Info

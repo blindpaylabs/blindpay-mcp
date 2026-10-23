@@ -428,18 +428,6 @@
         "destructive_justification": "Cannot create, update, delete, send, or execute financial operations."
       }
     },
-    "GetV1InstancesWebhookEndpointsPortalAccess": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": true,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Reads data from BlindPay and returns it without changing records or initiating transactions.",
-        "open_world_justification": "Calls the BlindPay API, an external service, to read the authenticated user’s instance data or BlindPay reference data.",
-        "destructive_justification": "Cannot create, update, delete, send, or execute financial operations."
-      }
-    },
     "GetV1InstancesBillingFees": {
       "annotations": {
         "readOnlyHint": true,

@@ -80,7 +80,7 @@ Payouts and payins have a `status` of `processing`, `on_hold`, `completed`, `fai
 
 - Lists: a short table of id, customer name, amount with unit, status and date. Keep every id so the user can find the record in the dashboard.
 - Customer records hold personal data: tax id, date of birth, address, phone, and links to ID documents and selfies. Show those fields only when the user asks for them.
-- `GetV1InstancesWebhookEndpointsPortalAccess` returns a sign-in URL for the webhook portal. Share it only when the user explicitly asks for portal access. Webhook signing secrets aren't available through this connection.
+- Webhook portal access links and webhook signing secrets aren't available through this connection; both are in the dashboard.
 
 ## Errors and empty results
 
