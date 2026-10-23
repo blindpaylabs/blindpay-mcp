@@ -1,6 +1,15 @@
 # OpenAI Plugins Directory submission: BlindPay
 
-The directory now takes a ZIP, shared by ChatGPT and Codex. `npm run pack:openai` builds `build-plugins/blindpay-openai.zip` from `plugins/openai` (manifest, listing copy, test cases, icons) plus the `blindpay-payments` skill. Upload that. The demo recording URL, reviewer credentials and domain verification are entered in the portal, not the ZIP. `chatgpt-app-submission.json` is the earlier Apps SDK form, kept for its per-tool justifications.
+The directory now takes a ZIP, shared by ChatGPT and Codex. `npm run pack:openai` builds `build-plugins/blindpay-openai.zip` from `plugins/openai` (manifest, listing copy, test cases, demo video link, icons) plus the `blindpay-payments` skill. Upload that with **Create draft from ZIP**. The MCP connection (server URL, OAuth, domain verification) and the reviewer credentials are entered in the portal, not the ZIP. `chatgpt-app-submission.json` is the earlier Apps SDK form, kept for its per-tool justifications.
+
+## Rejected on 2026-10-22: the reviewer couldn't sign in
+
+Version 1.1.6 came back "Changes required" with one reason: "We're unable to complete your sign-in or OAuth flow. Please ensure valid, working credentials are included and that they include no additional setup or verification to access your service."
+
+- **The package.** 1.1.6 was the Oct 6 Codex-layout ZIP (`.codex-plugin/plugin.json`, `.mcp.json` with no `type`). The portal never connected to the server. Its MCP card shows "Endpoint unavailable" and "Configuration incomplete", and no tools were discovered. 1.2.0 uses the Agent Plugins layout in `plugins/openai`, where `mcp.json` declares `"type": "streamable-http"`. `npm run check-openai-plugin` gates it in CI.
+- **The OAuth flow.** ChatGPT signs in as `https://chatgpt.com/oauth/client.json` with the redirect `https://chatgpt.com/connector_platform_oauth_redirect`, asking for the OIDC scopes Clerk advertises. `npm run check-connector` now walks that exact request and reaches the BlindPay sign-in page. Clerk refuses ChatGPT's client if it asks for `public_metadata` or `private_metadata` (`invalid_scope`), so nothing may make ChatGPT request those.
+- **The credentials.** Clerk signs in with email and password, an email code, a passkey, or Google, GitHub or Apple, and MFA is off. A reviewer can only get in with a **password**. An account that has only an email code, a social login or a passkey needs "additional verification", which is the rejection reason word for word. The account also needs an instance it can pick on the consent screen, with sample payouts, payins, customers and bank accounts, and no unfinished onboarding.
+- **Before resubmitting.** Sign in to ChatGPT in developer mode with the reviewer credentials (Settings, Apps, Advanced, Developer mode, then create an app with the server URL and OAuth). Run the five positive prompts. Only then submit.
 
 Brief for Codex. Use these values to run the `$chatgpt-app-submission` skill (OpenAI Developers plugin) in this repo and produce `chatgpt-app-submission.json`. Use the values below exactly as written. If a field is not covered here, stop and ask; do not make one up.
 
@@ -10,7 +19,7 @@ OpenAI's plugin guidelines list "Execution of money transfers, crypto transfers,
 
 - Server URL for every field: `https://mcp.blindpay.com/mcp/readonly`
 - Auth: OAuth 2.1 with PKCE (sign in with a BlindPay account, then pick an instance)
-- Surface: 44 GET tools, annotated `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: true`. Only wallet message signing and the webhook signing secret are excluded. `/mcp/readonly` is shared with every client that uses it (Claude, auth.md discovery), so this submission must match it as deployed; responses are returned in full. Rebuild the `tools` block in `chatgpt-app-submission.json` from the public server card (`https://mcp.blindpay.com/.well-known/mcp/server-card.json`: read-only tools minus those two) whenever the API changes.
+- Surface: 43 GET tools, annotated `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: true`. Only wallet message signing and the webhook signing secret are excluded. `/mcp/readonly` is shared with every client that uses it (Claude, auth.md discovery), so this submission must match it as deployed; responses are returned in full. Rebuild the `tools` block in `chatgpt-app-submission.json` from the public server card (`https://mcp.blindpay.com/.well-known/mcp/server-card.json`: read-only tools minus those two) whenever the API changes.
 - Copy must never say the plugin sends, pays, or moves money.
 
 ## Step 1: Info
@@ -20,17 +29,17 @@ OpenAI's plugin guidelines list "Execution of money transfers, crypto transfers,
 | 1 | Directory icon | `assets/icon-square-1024.png` | Square PNG, at least 256 × 256. Full bleed, the directory rounds the corners. If the preview looks cropped, use `assets/icon-512.png`. |
 | 2 | ChatGPT composer icon | `assets/icon-square-128.png` | Square PNG, at least 48 × 48. |
 | 3 | Name | `BlindPay` | |
-| 4 | Version | `1.0.0` | First OpenAI submission. Separate from the npm version (1.8.0). Bump it on each resubmission. |
-| 5 | Subtitle | `Track stablecoin payments` | 25 of 30 characters. Plain, functional. |
+| 4 | Version | `1.2.0` | 1.1.2 to 1.1.6 were uploaded from Oct 6 builds. Separate from the npm version. Raise it on every resubmission. |
+| 5 | Subtitle | `Read-only BlindPay payments` | 27 of 30 characters. Says read-only up front, as 1.1.6 did. |
 | 6 | Description | see below | Public on the directory page. |
 | 7 | Category | `Finance` | If there is no finance option, use `Business`. |
 | 8 | Developer Identity | The verified BlindPay business | Not a personal identity. |
-| 9 | Plugin Author | `Blind Pay, Inc.` | **Unconfirmed.** The privacy policy names both "Blind Pay, Inc." and "Blind Pay, LLC". This must match the verified identity from field 8 character for character. |
+| 9 | Plugin Author | `Blind Pay, Inc.` | The verified developer identity in the portal. `author.name` and `developerName` in `plugins/openai/plugin.json` match it character for character. |
 | 10 | Website URL | `https://blindpay.com` | |
 | 11 | Customer support URL | `https://blindpay.com/contact` | `/support` and `/help` return 404. Support email: `support@blindpay.com`. |
 | 12 | Privacy policy URL | `https://blindpay.com/privacy-policy` | `/privacy` returns 404. |
 | 13 | Terms of Service URL | `https://blindpay.com/terms-of-service` | `/terms` returns 404. |
-| 14 | Demo Recording URL | *(pending)* | Record the demo and add an accessible link before submission. |
+| 14 | Demo Recording URL | In `plugins/openai/plugin.json` | The Google Drive recording submitted with 1.1.6. Re-record it if the sign-in or consent screens change. |
 | 15 | Commerce & Purchasing | Unchecked | The plugin sells nothing and links to no checkout. |
 
 ### Description (field 6)
