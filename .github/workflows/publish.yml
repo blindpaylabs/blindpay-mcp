@@ -89,13 +89,39 @@ jobs:
       # is in blindpay.com's TXT record (`mcp-publisher login dns` prints it).
       # Until MCP_PRIVATE_KEY exists the step is skipped, never failed, so npm
       # publishing does not depend on it.
-      - name: Publish to MCP Registry
-        if: steps.published.outputs.value == 'false' && env.MCP_PRIVATE_KEY != ''
+      #
+      # It keys off the registry's own latest version, not off this run's npm
+      # publish, so a registration that failed after npm (1.9.0 did) is caught
+      # up by the next push or a re-run instead of being skipped forever.
+      - name: Check MCP Registry version
+        id: registry
+        if: env.MCP_PRIVATE_KEY != ''
         env:
           MCP_PRIVATE_KEY: ${{ secrets.MCP_PRIVATE_KEY }}
         run: |
-          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          LATEST=$(curl -fsS --retry 3 --max-time 30 "https://registry.modelcontextprotocol.io/v0.1/servers/com.blindpay%2Fmcp/versions/latest" | jq -r '.server.version // ""' || true)
+          echo "value=$LATEST" >> "$GITHUB_OUTPUT"
+
+      # The registry checks that the npm version exists, and npm can take a
+      # minute to serve a version it has just accepted: 1.9.0 was rejected
+      # with a 404 twelve seconds after `npm publish`. Wait until npm serves it.
+      - name: Publish to MCP Registry
+        if: env.MCP_PRIVATE_KEY != '' && steps.registry.outputs.value != steps.version.outputs.value
+        env:
+          MCP_PRIVATE_KEY: ${{ secrets.MCP_PRIVATE_KEY }}
+        run: |
           VERSION="${{ steps.version.outputs.value }}"
+          for attempt in $(seq 1 30); do
+            npm view "@blindpay/mcp@$VERSION" version >/dev/null 2>&1 && break
+            echo "Waiting for npm to serve @blindpay/mcp@$VERSION ($attempt/30)"
+            sleep 10
+          done
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
           jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
           ./mcp-publisher login dns --domain blindpay.com --private-key "$MCP_PRIVATE_KEY"
-          ./mcp-publisher publish
+          for attempt in 1 2 3; do
+            ./mcp-publisher publish && exit 0
+            echo "Registry publish attempt $attempt failed; retrying in 30 s"
+            sleep 30
+          done
+          exit 1
