@@ -178,11 +178,16 @@ function toolAnnotations(def: McpToolDefinition): ToolAnnotations {
  * `instanceParamNameFor` in the hosted tool-gen.ts.
  */
 function instanceParamName(def: McpToolDefinition): string | undefined {
-  if (!/^\/v1(?:\/e)?\/instances\/\{/.test(def.pathTemplate)) return undefined;
-  const firstBrace = def.pathTemplate.search(/\{/);
-  return def.executionParameters.find(
-    (p) => p.in === 'path' && def.pathTemplate.indexOf(`{${p.name}}`) === firstBrace
-  )?.name;
+  if (/^\/v1(?:\/e)?\/instances\/\{/.test(def.pathTemplate)) {
+    const firstBrace = def.pathTemplate.search(/\{/);
+    return def.executionParameters.find(
+      (p) => p.in === 'path' && def.pathTemplate.indexOf(`{${p.name}}`) === firstBrace
+    )?.name;
+  }
+  // A route outside /v1/instances/{id} can still take the instance as a query
+  // parameter (PostV1Presign). 1.8.0 filled it in from BLINDPAY_INSTANCE_ID,
+  // so keep doing that even though the hosted server requires it.
+  return def.executionParameters.find((p) => p.in === 'query' && p.name === 'instance_id')?.name;
 }
 
 /** The instance param BLINDPAY_INSTANCE_ID fills in, when it is set. */
@@ -773,11 +778,17 @@ main().catch((error) => {
 });
 
 /** Pretty-prints a body that parses as JSON, whatever its content-type. */
+// The API always answers in JSON, so a non-JSON body comes from something in
+// front of it, such as a load balancer's HTML 502 page. Keep enough to tell
+// what happened without filling the model's context with markup.
+const MAX_NON_JSON_BODY_CHARS = 2000;
+
 function jsonOrText(text: string): string {
   try {
     return JSON.stringify(JSON.parse(text), null, 2);
   } catch {
-    return text;
+    if (text.length <= MAX_NON_JSON_BODY_CHARS) return text;
+    return `${text.slice(0, MAX_NON_JSON_BODY_CHARS)}\n[non-JSON response cut at ${MAX_NON_JSON_BODY_CHARS} of ${text.length} characters]`;
   }
 }
 
