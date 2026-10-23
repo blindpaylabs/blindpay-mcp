@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * Live check: walks the sign-in path Claude takes against the deployed
- * connector (https://mcp.blindpay.com/mcp/readonly by default) and fails on
- * anything Claude's OAuth client would reject. It stops at the BlindPay
- * sign-in page, so it creates no grants, tokens or clients. Not in ci.yml:
- * it depends on production being up; run it before a directory submission
- * and after auth changes. VS Code is probed too, since the GitHub MCP
- * Registry gallery installs into it, and so is ChatGPT, whose reviewers
- * rejected a plugin version they couldn't sign in to.
+ * Live check: walks the sign-in paths Claude (claude.ai and Claude Code),
+ * VS Code and ChatGPT take against the deployed connector
+ * (https://mcp.blindpay.com/mcp/readonly by default) and fails on anything
+ * their OAuth clients would reject. VS Code is the client the GitHub MCP
+ * Registry gallery installs into; ChatGPT's reviewers rejected a plugin
+ * version they couldn't sign in to. It stops at the BlindPay sign-in page,
+ * so it creates no grants, tokens or clients. Not in ci.yml: it depends on
+ * production being up; run it before a directory submission and after auth
+ * changes.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import {

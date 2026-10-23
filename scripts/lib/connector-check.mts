@@ -1,8 +1,9 @@
 /**
- * Pure rules for the remote MCP connector the Claude directory lists
- * (https://mcp.blindpay.com/mcp/readonly). They encode the parts of Claude's
- * OAuth client that are stricter than the MCP spec: see
- * https://claude.com/docs/connectors/building/authentication. No I/O here;
+ * Pure rules for the remote MCP connector the Claude and OpenAI directories
+ * list (https://mcp.blindpay.com/mcp/readonly). They encode the parts of
+ * Claude's, VS Code's and ChatGPT's OAuth clients that are stricter than the
+ * MCP spec: see https://claude.com/docs/connectors/building/authentication and
+ * https://developers.openai.com/plugins/build/auth. No I/O here;
  * scripts/check-connector.mts makes the requests and passes what it saw.
  */
 
@@ -114,6 +115,16 @@ function checkAuthServer({ authServerMetadata }: ConnectorObservations): string[
   if (!acceptsClientMetadataDocuments && typeof metadata.registration_endpoint !== 'string') {
     problems.push('Claude has no way to register: advertise CIMD with "none" in token_endpoint_auth_methods_supported, or expose a registration_endpoint.');
   }
+  // OpenAI's auth docs: ChatGPT uses https://chatgpt.com/oauth/client.json and
+  // its stable redirect only when the authorization server returns iss on
+  // every authorization response. Otherwise it switches to a per-connector
+  // client and callback, which the ChatGPT probe below can't reproduce.
+  if (typeof metadata.issuer === 'string' && metadata.authorization_response_iss_parameter_supported !== true) {
+    problems.push(
+      'authorization_response_iss_parameter_supported is not true, so ChatGPT signs in with a per-connector client and callback ' +
+        'that this check does not probe; the ChatGPT result below says nothing about it.',
+    );
+  }
   return problems;
 }
 
@@ -165,7 +176,7 @@ function checkAuthorize({ authorize }: ConnectorObservations): string[] {
   return problems;
 }
 
-/** Returns one human-readable problem per broken rule; an empty list means Claude can sign in. */
+/** Returns one human-readable problem per broken rule; an empty list means every probed client can sign in. */
 export function evaluateConnector(observations: ConnectorObservations): string[] {
   return [
     ...checkChallenge(observations),

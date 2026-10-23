@@ -226,8 +226,8 @@ the directory enforces and this repo can break:
 Listing copy for both submissions is in `assets/LISTING.md`.
 
 Run `npm run check-connector` before a directory submission and after any
-auth change in blindpay-v2 or Clerk. It checks what Claude's OAuth client
-needs and the MCP spec doesn't spell out: a 401 with a `resource_metadata`
+auth change in blindpay-v2 or Clerk. It checks what the OAuth clients of
+Claude, VS Code and ChatGPT need and the MCP spec doesn't spell out: a 401 with a `resource_metadata`
 pointer, `resource` equal to the URL exactly, CIMD with public-client auth
 (Clerk has no DCR endpoint), S256, `invalid_grant` on a bad refresh token, and
 that claude.ai's, Claude Code's, VS Code's and ChatGPT's client metadata

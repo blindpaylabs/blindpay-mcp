@@ -21,6 +21,10 @@ const AUTHORIZE: AuthorizeObservations = {
   undeclaredRedirects: ['refused', 'refused', 'refused'],
 };
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value as Record<string, unknown>;
+}
+
 function validObservations(): ConnectorObservations {
   return {
     serverUrl: SERVER,
@@ -34,6 +38,7 @@ function validObservations(): ConnectorObservations {
       code_challenge_methods_supported: ['S256'],
       token_endpoint_auth_methods_supported: ['client_secret_basic', 'none'],
       client_id_metadata_document_supported: true,
+      authorization_response_iss_parameter_supported: true,
     },
     slowestRequestMs: 950,
     bogusRefresh: { status: 400, error: 'invalid_grant' },
@@ -158,7 +163,13 @@ test('the scopes ChatGPT asks for are the OIDC scopes the authorization server a
   assert.equal(advertisedOidcScopes(null), '');
 });
 
-test('sign-in must start for ChatGPT with the OIDC scopes it requests', () => {
+test("ChatGPT's shared client is only used when the authorization server returns iss on every response", () => {
+  const o = validObservations();
+  const withoutIss = { ...asRecord(o.authServerMetadata), authorization_response_iss_parameter_supported: undefined };
+  assert.equal(problemsMatching({ ...o, authServerMetadata: withoutIss }, /authorization_response_iss_parameter_supported/).length, 1);
+});
+
+test("sign-in must start for ChatGPT's shared client and stable redirect", () => {
   const o = validObservations();
   assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, chatgpt: 'sent-to-redirect' } }, /ChatGPT/).length, 1);
   assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, chatgpt: 'refused' } }, /ChatGPT/).length, 1);
