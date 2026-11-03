@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Live check: walks the sign-in paths Claude (claude.ai and Claude Code),
- * VS Code and ChatGPT take against the deployed connector
+ * VS Code, ChatGPT and Cursor take against the deployed connector
  * (https://mcp.blindpay.com/mcp/readonly by default) and fails on anything
  * their OAuth clients would reject. VS Code is the client the GitHub MCP
  * Registry gallery installs into; ChatGPT's reviewers rejected a plugin
@@ -38,6 +38,12 @@ const VSCODE = 'https://vscode.dev/oauth/client-metadata.json';
 // otherwise it registers a per-connector callback.
 const CHATGPT = 'https://chatgpt.com/oauth/client.json';
 const CHATGPT_CALLBACK = 'https://chatgpt.com/connector_platform_oauth_redirect';
+// Cursor has no CIMD, and Clerk has no DCR, so Cursor signs in through this
+// pre-registered public client (auth.CLIENT_ID in plugins/cursor/mcp.json).
+// Its scopes are pinned there too: Clerk refuses the whole request when any
+// requested scope isn't on the client.
+const CURSOR = '4c2rAa08DqbVvnon';
+const CURSOR_SCOPE = 'profile email offline_access';
 
 const CLAUDE_AI_SIGN_IN: OAuthClient = { clientId: CLAUDE_AI, redirectUri: CLAUDE_AI_CALLBACK };
 // Claude Code picks a fresh port per session, so probe both loopback hosts it
@@ -53,11 +59,19 @@ const VSCODE_SIGN_INS: OAuthClient[] = [
   { clientId: VSCODE, redirectUri: 'http://127.0.0.1:33418/' },
   { clientId: VSCODE, redirectUri: 'https://vscode.dev/redirect' },
 ];
-// Each pairs a client with a redirect its metadata document doesn't list.
+// Cursor's two fixed callbacks: the desktop loopback and the web one Cloud
+// Agents use. https://cursor.com/docs/context/mcp
+const CURSOR_SIGN_INS: OAuthClient[] = [
+  { clientId: CURSOR, redirectUri: 'http://localhost:8787/callback', scope: CURSOR_SCOPE },
+  { clientId: CURSOR, redirectUri: 'https://www.cursor.com/agents/mcp/oauth/callback', scope: CURSOR_SCOPE },
+];
+// Each pairs a client with a redirect its metadata document (or, for
+// Cursor, its registration) doesn't list.
 const UNDECLARED_REDIRECTS: OAuthClient[] = [
   { clientId: CLAUDE_CODE, redirectUri: CLAUDE_AI_CALLBACK },
   { clientId: CLAUDE_AI, redirectUri: 'http://localhost:3118/callback' },
   { clientId: CLAUDE_AI, redirectUri: 'https://attacker.example/callback' },
+  { clientId: CURSOR, redirectUri: 'http://localhost:8788/callback', scope: CURSOR_SCOPE },
 ];
 const MAX_REDIRECTS = 8;
 
@@ -159,6 +173,7 @@ async function observeAuthorize(endpoint: string, resource: string, authServerMe
       { clientId: CHATGPT, redirectUri: CHATGPT_CALLBACK, scope: advertisedOidcScopes(authServerMetadata) },
       resource,
     ),
+    cursor: await outcomes(CURSOR_SIGN_INS),
     undeclaredRedirects: await outcomes(UNDECLARED_REDIRECTS),
   };
 }
@@ -220,7 +235,7 @@ async function main(): Promise<void> {
     for (const problem of problems) console.error(`  - ${problem}`);
     process.exit(1);
   }
-  console.log(`OK: claude.ai, Claude Code, VS Code and ChatGPT reach sign-in for ${serverUrl} (slowest discovery or token request ${observations.slowestRequestMs} ms).`);
+  console.log(`OK: claude.ai, Claude Code, VS Code, ChatGPT and Cursor reach sign-in for ${serverUrl} (slowest discovery or token request ${observations.slowestRequestMs} ms).`);
 }
 
 function describeFailure(err: Error): string {

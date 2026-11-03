@@ -18,7 +18,8 @@ const AUTHORIZE: AuthorizeObservations = {
   claudeCode: ['sign-in', 'sign-in', 'sign-in'],
   vscode: ['sign-in', 'sign-in'],
   chatgpt: 'sign-in',
-  undeclaredRedirects: ['refused', 'refused', 'refused'],
+  cursor: ['sign-in', 'sign-in'],
+  undeclaredRedirects: ['refused', 'refused', 'refused', 'refused'],
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -174,6 +175,13 @@ test("sign-in must start for ChatGPT's shared client and stable redirect", () =>
   assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, chatgpt: 'sent-to-redirect' } }, /ChatGPT/).length, 1);
   assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, chatgpt: 'refused' } }, /ChatGPT/).length, 1);
   assert.equal(problemsMatching(o, /ChatGPT/).length, 0);
+});
+
+test("sign-in must start for Cursor's pre-registered client on both callbacks", () => {
+  const o = validObservations();
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, cursor: ['sign-in', 'refused'] } }, /Cursor/).length, 1);
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, cursor: ['sent-to-redirect', 'sign-in'] } }, /Cursor/).length, 1);
+  assert.equal(problemsMatching(o, /Cursor/).length, 0);
 });
 
 test('every undeclared redirect must be refused, and never followed back to the client', () => {
