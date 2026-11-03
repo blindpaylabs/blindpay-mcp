@@ -93,8 +93,10 @@ scripts/check-openai-plugin.mts  # OpenAI submission gate for plugins/openai,
                             # used by ci.yml. Rules (with tests) live in
                             # scripts/lib/openai-plugin-check.mts.
 plugins/cursor/             # Cursor Marketplace plugin, listed through
-                            # .cursor-plugin/marketplace.json. API key auth:
-                            # Cursor's OAuth needs DCR, which Clerk doesn't offer.
+                            # .cursor-plugin/marketplace.json. OAuth through
+                            # the pre-registered public Clerk client
+                            # 4c2rAa08DqbVvnon (Clerk has no DCR, Cursor no
+                            # CIMD); scopes must stay explicit.
 llms-install.md             # Setup steps Cline (and other agents) follow.
 glama.json                  # Glama ownership claim (GitHub maintainers).
 scripts/generate.ts         # Legacy raw generator dump for manual debugging

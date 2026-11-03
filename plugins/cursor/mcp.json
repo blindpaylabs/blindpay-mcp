@@ -2,14 +2,24 @@
   "mcpServers": {
     "blindpay": {
       "url": "https://mcp.blindpay.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${BLINDPAY_API_KEY}"
+      "auth": {
+        "CLIENT_ID": "4c2rAa08DqbVvnon",
+        "scopes": [
+          "profile",
+          "email",
+          "offline_access"
+        ]
       }
     },
     "blindpay-readonly": {
       "url": "https://mcp.blindpay.com/mcp/readonly",
-      "headers": {
-        "Authorization": "Bearer ${BLINDPAY_API_KEY}"
+      "auth": {
+        "CLIENT_ID": "4c2rAa08DqbVvnon",
+        "scopes": [
+          "profile",
+          "email",
+          "offline_access"
+        ]
       }
     }
   }

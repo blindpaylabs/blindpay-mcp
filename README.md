@@ -62,11 +62,27 @@ You can check if you have Node.js installed by running `node -v`. Same for Npm, 
 
 ### Cursor
 
-One-click install (remote server with API key):
+One-click install (remote server, OAuth, no API key):
 
-[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=blindpay&config=eyJ1cmwiOiJodHRwczovL21jcC5ibGluZHBheS5jb20vbWNwIiwiaGVhZGVycyI6eyJBdXRob3JpemF0aW9uIjoiQmVhcmVyIFlPVVJfQkxJTkRQQVlfQVBJX0tFWSJ9fQ==)
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=blindpay&config=eyJ1cmwiOiJodHRwczovL21jcC5ibGluZHBheS5jb20vbWNwIiwiYXV0aCI6eyJDTElFTlRfSUQiOiI0YzJyQWEwOERxYlZ2bm9uIiwic2NvcGVzIjpbInByb2ZpbGUiLCJlbWFpbCIsIm9mZmxpbmVfYWNjZXNzIl19fQ==)
 
-Replace `YOUR_BLINDPAY_API_KEY` in `~/.cursor/mcp.json` with a key from the dashboard. Cursor's OAuth sign-in needs dynamic client registration, which BlindPay's sign-in doesn't offer, so the remote server takes the API key as a bearer token instead. The Cursor plugin in [`plugins/cursor`](./plugins/cursor) sets this up with both endpoints.
+Or add it to `~/.cursor/mcp.json` yourself, then select **Needs login** in Cursor's MCP settings and sign in with your BlindPay account:
+
+```json
+{
+  "mcpServers": {
+    "blindpay": {
+      "url": "https://mcp.blindpay.com/mcp",
+      "auth": {
+        "CLIENT_ID": "4c2rAa08DqbVvnon",
+        "scopes": ["profile", "email", "offline_access"]
+      }
+    }
+  }
+}
+```
+
+Cursor only signs in through dynamic client registration or a fixed client ID, and BlindPay's sign-in has no registration endpoint, so `4c2rAa08DqbVvnon` is BlindPay's public OAuth client ID for Cursor. Keep `scopes` as shown: without it Cursor asks for every scope the sign-in server advertises, and any scope outside these three fails with `invalid_scope`. An `Authorization: Bearer` header doesn't work here: Cursor ignores configured headers when the server publishes OAuth discovery. The Cursor plugin in [`plugins/cursor`](./plugins/cursor) sets this up with both endpoints.
 
 One-click install (local server with API key):
 

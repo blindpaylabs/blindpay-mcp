@@ -1,7 +1,7 @@
 /**
  * Pure rules for the remote MCP connector the Claude and OpenAI directories
  * list (https://mcp.blindpay.com/mcp/readonly). They encode the parts of
- * Claude's, VS Code's and ChatGPT's OAuth clients that are stricter than the
+ * Claude's, VS Code's, ChatGPT's and Cursor's OAuth clients that are stricter than the
  * MCP spec: see https://claude.com/docs/connectors/building/authentication and
  * https://developers.openai.com/plugins/build/auth. No I/O here;
  * scripts/check-connector.mts makes the requests and passes what it saw.
@@ -36,6 +36,12 @@ export interface AuthorizeObservations {
    * not request comes back as error=invalid_scope on the redirect.
    */
   chatgpt: AuthorizeOutcome;
+  /**
+   * Cursor's pre-registered client, one outcome per fixed callback, with the
+   * scopes its config pins. Cursor supports neither CIMD nor a server without
+   * DCR, so this client has to stay registered with both callbacks.
+   */
+  cursor: AuthorizeOutcome[];
   /** One outcome per redirect the client never declared; each must be refused. */
   undeclaredRedirects: AuthorizeOutcome[];
 }
@@ -167,6 +173,13 @@ function checkAuthorize({ authorize }: ConnectorObservations): string[] {
     problems.push(
       `Sign-in from ChatGPT ended as "${authorize.chatgpt}"; accept https://chatgpt.com/oauth/client.json, ` +
         'its redirect https://chatgpt.com/connector_platform_oauth_redirect and every OIDC scope the authorization server advertises.',
+    );
+  }
+  const cursorMisses = authorize.cursor.filter((outcome) => outcome !== 'sign-in');
+  if (cursorMisses.length > 0) {
+    problems.push(
+      `Sign-in from Cursor failed for ${cursorMisses.length} of ${authorize.cursor.length} callbacks; keep the public Clerk client 4c2rAa08DqbVvnon ` +
+        'with http://localhost:8787/callback, https://www.cursor.com/agents/mcp/oauth/callback and the scopes profile email offline_access.',
     );
   }
   const accepted = authorize.undeclaredRedirects.filter((outcome) => outcome !== 'refused');
