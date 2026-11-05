@@ -48,9 +48,10 @@ jobs:
         run: npm ci
 
       # Pure script, no LLM: rebuilds src/index.ts from src/index.template.ts
-      # plus a freshly generated tool map, and bumps package.json's version
-      # from a scripted diff of the tool-name set. Fails loudly (non-zero
-      # exit) instead of guessing if the spec has something it can't map.
+      # plus a freshly generated tool map, and bumps the version in
+      # package.json and the store manifests from a scripted diff of the
+      # tool-name set. Fails loudly (non-zero exit) instead of guessing if the
+      # spec has something it can't map.
       - name: Deterministic sync
         run: |
           npm run sync | tee /tmp/sync-output.txt
@@ -70,7 +71,10 @@ jobs:
         id: commit
         run: |
           git remote set-url origin "https://x-access-token:${{ secrets.SDK_SYNC_PAT }}@github.com/${{ github.repository }}.git"
-          git add -A -- src/index.ts package.json
+          # Every file sync.mts wrote: the index, package.json and the store
+          # manifests its summary lists.
+          MANIFESTS=$(jq -r '.manifests[]' /tmp/sync-summary.json)
+          git add -A -- src/index.ts package.json $MANIFESTS
           if git diff --staged --quiet; then
             echo "No changes to commit"
             echo "has_changes=false" >> "$GITHUB_OUTPUT"

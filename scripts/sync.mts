@@ -6,14 +6,17 @@
  * event list spliced in. Each tool's inputSchema is rebuilt from the spec the
  * way the hosted server builds it. The version is left alone when the
  * rebuilt file is unchanged; otherwise it gets a minor bump if a tool name was
- * added or removed and a patch bump if not. No LLM, no guessing: anything the
- * generator output doesn't match the expected shape for is a hard failure.
+ * added or removed and a patch bump if not, and the store manifests
+ * (lib/manifest-versions.mts) get the same version. No LLM, no guessing:
+ * anything the generator output doesn't match the expected shape for is a hard
+ * failure.
  *
  * Usage:
  *   node --import tsx scripts/sync.mts [--spec path] [--out-dir dir] [--check]
  *
  * --check: run the full pipeline into a scratch location and diff against
- *          the committed src/index.ts + package.json instead of writing.
+ *          the committed src/index.ts, package.json and store manifests
+ *          instead of writing.
  *          Exit 1 on any difference. Used for the determinism/equivalence
  *          proofs and can be wired into CI.
  */
@@ -30,6 +33,7 @@ import {
   bumpSemver,
 } from './lib/tool-map.mts';
 import { inputSchemasFromOpenApi, webhookEventsFromOpenApi } from './lib/openapi.mts';
+import { setManifestVersion, VERSIONED_MANIFESTS } from './lib/manifest-versions.mts';
 
 interface Args {
   spec: string;
@@ -169,6 +173,17 @@ function main(): void {
     /"version":\s*"\d+\.\d+\.\d+"/,
     `"version": "${newVersion}"`,
   );
+  // The store manifests follow package.json, so a store never lists an older version.
+  const manifestEdits = VERSIONED_MANIFESTS.map((manifest) => {
+    const path = resolve(repoRoot, manifest.path);
+    const source = readFileSync(path, 'utf8');
+    try {
+      return { manifest, path, source, updated: setManifestVersion(manifest, source, newVersion) };
+    } catch (err) {
+      fail((err as Error).message);
+    }
+  });
+  const changedManifestEdits = manifestEdits.filter((edit) => edit.updated !== edit.source);
 
   const builtIndex = buildIndex(newVersion);
 
@@ -184,26 +199,28 @@ function main(): void {
     removed,
     renames: renamed!.renames,
     webhookEvents: webhookEvents.length,
+    manifests: changedManifestEdits.map((edit) => edit.manifest.path),
   };
 
   if (args.check) {
     const indexDiffers = committedIndex !== builtIndex;
-    const versionDiffers = packageJsonSource !== newPackageJson;
+    const versionDiffers = packageJsonSource !== newPackageJson || changedManifestEdits.length > 0;
     console.log(JSON.stringify(summary, null, 2));
     if (indexDiffers || versionDiffers) {
       console.error(
         '\n--check found differences between the committed files and a fresh regeneration ' +
-          '(see summary above). This is expected when the spec changed; run without --check ' +
-          'to apply.',
+          '(see summary above). This is expected when the spec changed or a manifest version ' +
+          'drifted; run without --check to apply.',
       );
       process.exit(indexDiffers || versionDiffers ? 2 : 0);
     }
-    console.log('\nNo differences: committed src/index.ts and package.json already match the spec.');
+    console.log('\nNo differences: committed src/index.ts, package.json and the manifests already match the spec.');
     return;
   }
 
   writeFileSync(committedIndexPath, builtIndex);
   writeFileSync(packageJsonPath, newPackageJson);
+  for (const edit of changedManifestEdits) writeFileSync(edit.path, edit.updated);
   console.log(JSON.stringify(summary, null, 2));
 }
 

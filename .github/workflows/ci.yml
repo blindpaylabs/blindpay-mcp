@@ -43,6 +43,9 @@ jobs:
       - name: OpenAI plugin gate
         run: npm run check-openai-plugin
 
+      - name: Store manifest versions match package.json
+        run: npm run check-versions
+
       - name: Verify SERVER_VERSION matches package.json
         run: |
           SERVER_VERSION=$(grep -oE "SERVER_VERSION = '[^']+'" src/index.ts | sed "s/.*'\(.*\)'/\1/")
