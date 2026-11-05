@@ -130,6 +130,8 @@ jobs:
             sleep 10
           done
           curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          # server.json already carries this version (check-versions gates every
+          # PR); the rewrite only guards a push to main that skipped CI.
           jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
           ./mcp-publisher login dns --domain blindpay.com --private-key "$MCP_PRIVATE_KEY"
           for attempt in 1 2 3; do

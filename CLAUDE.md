@@ -6,11 +6,12 @@
 npm run typecheck        # tsc --noEmit
 npm run build            # tsc + chmod the entry point
 npm run generate         # Raw openapi-mcp-generator dump to /tmp/mcp-generated (debugging only)
-npm run sync              # Full deterministic pipeline: writes src/index.ts + package.json
+npm run sync              # Full deterministic pipeline: writes src/index.ts, package.json and the store manifests' versions
 npm run sync:check        # Same pipeline, but diffs against committed files instead of writing (exit 2 on diff)
 npm run check-tool-names  # Static gate: fails if any committed tool name exceeds 52 chars
 npm run check-plugin      # Static gate: fails if plugins/blindpay breaks a Claude directory rule
 npm run check-openai-plugin  # Static gate: fails if plugins/openai breaks an OpenAI submission limit or leaves /mcp/readonly
+npm run check-versions    # Static gate: fails if a store manifest's version differs from package.json
 npm run check-connector   # Live check: walks the OAuth sign-in of Claude, Claude Code, VS Code and ChatGPT against mcp.blindpay.com/mcp/readonly (not in CI)
 npm test                  # Unit tests for scripts/lib (node:test via tsx)
 npm run pack:openai       # ZIP for the ChatGPT/Codex plugin directory, in build-plugins/
@@ -38,15 +39,15 @@ anywhere in this path; every step is a plain script.
    - splices that map, plus the spec's webhook events, into
      `src/index.template.ts` to produce `src/index.ts`,
    - picks the version bump (see "Version bump") and writes that version
-     into both `package.json` and `SERVER_VERSION`.
+     into `package.json`, `SERVER_VERSION` and the store manifests.
    Any spec shape the script can't map (missing map markers, a name it
    can't shorten under the limit, a duplicate name, a tool or parameter the
    generator and the hosted server's schema don't agree on) is a hard
    failure, not a best guess.
 3. CI (`ci.yml`, required on `main`) typechecks, builds and re-checks the
-   52-char limit. The PR on the `api-sync` branch is opened/updated and
-   `gh pr merge --auto --squash` is set on it, so it merges itself once CI
-   is green, no human step.
+   52-char limit and the manifest versions. The PR on the `api-sync` branch
+   is opened/updated and `gh pr merge --auto --squash` is set on it, so it
+   merges itself once CI is green, no human step.
 4. `publish.yml` (unchanged) publishes to npm and tags a release on every
    push to `main` whose `package.json` version isn't already published.
 
@@ -66,6 +67,12 @@ src/index.ts                # Built by scripts/sync.mts. Do not hand-edit.
 scripts/sync.mts            # The deterministic build: generator -> extract
                             # -> rename -> input schemas -> splice -> version bump.
 scripts/check-tool-names.mts  # Standalone 52-char gate, used by ci.yml too.
+scripts/check-versions.mts  # Manifest version gate, used by ci.yml.
+scripts/lib/manifest-versions.mts  # The store manifests that follow
+                            # package.json's version, and the pure helpers
+                            # sync.mts writes them with and check-versions
+                            # checks them with; manifest-versions.test.mts
+                            # next to it.
 scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, the
                             # input-schema swap, semver bump) used by both
                             # scripts above, with tool-map.test.mts next to it.
@@ -217,6 +224,17 @@ if `src/index.ts` would come out identical (re-syncing the same spec is a
 no-op), else **minor** if any tool name was added or removed, else
 **patch**. Never major, that's a deliberate human decision made directly in
 `package.json` outside the sync pipeline.
+
+The store manifests carry the same version, and `sync.mts` writes it into
+them: `server.json` (MCP Registry), `gemini-extension.json` (Gemini CLI),
+`.claude-plugin/plugin.json` and its `marketplace.json` entry (Claude Code)
+and `.grok-plugin/plugin.json` (Grok Build). Clients compare these versions
+to decide whether an installed plugin has an update. A hand edit to
+`package.json`'s version (a major bump) has to set `SERVER_VERSION` in
+`src/index.ts` and these manifests to the same value by hand: `npm run sync`
+would treat the edit as a changed build and bump again. `npm run
+check-versions` fails CI until the manifests match. `plugins/blindpay` and
+`plugins/openai` keep their own versions (see below).
 
 ## Claude directory plugin and connector
 
