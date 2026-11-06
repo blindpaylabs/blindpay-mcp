@@ -1,6 +1,6 @@
 {
   "name": "blindpay",
-  "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers for global payments. Connects to the hosted server; you sign in with your BlindPay account.",
+  "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and customers for global payments. Connects to the hosted server; you sign in with your BlindPay account.",
   "author": {
     "name": "BlindPay",
     "email": "thayto@blindpay.com"

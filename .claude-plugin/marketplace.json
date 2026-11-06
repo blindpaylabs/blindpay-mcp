@@ -11,7 +11,7 @@
     {
       "name": "blindpay",
       "source": "./",
-      "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers for global payments.",
+      "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and customers for global payments.",
       "version": "1.10.0",
       "category": "finance",
       "homepage": "https://blindpay.com/docs",

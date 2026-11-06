@@ -22,6 +22,6 @@ Turn off `blindpay` in Cursor's MCP settings if the agent should only read data.
 
 - List my last 5 payouts with their status and amount.
 - Which payment rails can I use to pay out to Brazil?
-- Get a quote to send 1,000 USDC as BRL to my first receiver.
+- Get a quote to send 1,000 USDC as BRL to my first customer.
 
 Docs: https://blindpay.com/docs. Source and issues: https://github.com/blindpaylabs/blindpay-mcp.

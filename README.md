@@ -11,7 +11,7 @@ The official [Model Context Protocol](https://modelcontextprotocol.io/) server f
 
 This MCP server provides AI assistants (Cursor, Claude Code, Codex, etc.) with access to BlindPay's stablecoin payment infrastructure. It exposes tools that allow AI assistants to:
 
-- Create and manage receivers (individuals/businesses)
+- Create and manage customers (individuals/businesses)
 - Process payouts and payins on multiple blockchains
 - Create quotes and get FX rates
 - Manage virtual accounts and blockchain wallets
@@ -263,11 +263,11 @@ Once configured, you can ask your AI assistant to interact with BlindPay:
 
 "List all my recent payouts from the last 7 days"
 
-"Create a virtual account for receiver with ID re_xxxxxxxxxxxx"
+"Create a virtual account for the customer with ID re_xxxxxxxxxxxx"
 
 "Show me the available payment rails"
 
-"Get all receivers for instance in_xxxxxxxxxxxx"
+"Get all customers for instance in_xxxxxxxxxxxx"
 ```
 
 > [!TIP]

@@ -18,11 +18,11 @@ Paste these into store forms as written. When one changes, change it here and in
 
 **Short (under 100 characters)**
 
-> Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers for global payments.
+> Official BlindPay MCP server: stablecoin payouts, payins, quotes and customers for global payments.
 
 **Long (2 sentences)**
 
-> Connect your AI assistant to BlindPay to create receivers, quote FX rates, and send stablecoin payouts and payins across multiple blockchains. Sign in with your BlindPay account over OAuth, or run it locally with an API key and a readonly profile when the assistant must not move money.
+> Connect your AI assistant to BlindPay to create customers, quote FX rates, and send stablecoin payouts and payins across multiple blockchains. Sign in with your BlindPay account over OAuth, or run it locally with an API key and a readonly profile when the assistant must not move money.
 
 **Tagline (under 40 characters)**
 
