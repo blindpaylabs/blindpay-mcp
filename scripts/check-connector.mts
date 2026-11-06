@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Live check: walks the sign-in paths Claude (claude.ai and Claude Code),
- * VS Code, ChatGPT and Cursor take against the deployed connector
+ * VS Code, ChatGPT, Cursor and Grok Build take against the deployed connector
  * (https://mcp.blindpay.com/mcp/readonly by default) and fails on anything
  * their OAuth clients would reject. VS Code is the client the GitHub MCP
  * Registry gallery installs into; ChatGPT's reviewers rejected a plugin
@@ -44,6 +44,19 @@ const CHATGPT_CALLBACK = 'https://chatgpt.com/connector_platform_oauth_redirect'
 // requested scope isn't on the client.
 const CURSOR = '4c2rAa08DqbVvnon';
 const CURSOR_SCOPE = 'profile email offline_access';
+// Grok Build has no client metadata document and falls back to DCR, so it
+// signs in through this pre-registered public client (oauth.clientId in
+// .grok-plugin/mcp.json) with the scopes that file pins. It picks a free
+// loopback port, so probe two: Clerk matches 127.0.0.1 on any port.
+const GROK = 'S8w7ZxvMOl4Ws5LL';
+const GROK_SCOPE = 'profile email offline_access';
+const GROK_SIGN_INS: OAuthClient[] = [
+  { clientId: GROK, redirectUri: 'http://127.0.0.1:8789/callback', scope: GROK_SCOPE },
+  { clientId: GROK, redirectUri: 'http://127.0.0.1:52413/callback', scope: GROK_SCOPE },
+];
+// The BlindPay sign-in page Clerk hands off to. It answers scripts with a
+// Cloudflare bot challenge, which browsers pass.
+const SIGN_IN_ORIGIN = 'https://app.blindpay.com';
 
 const CLAUDE_AI_SIGN_IN: OAuthClient = { clientId: CLAUDE_AI, redirectUri: CLAUDE_AI_CALLBACK };
 // Claude Code picks a fresh port per session, so probe both loopback hosts it
@@ -65,13 +78,14 @@ const CURSOR_SIGN_INS: OAuthClient[] = [
   { clientId: CURSOR, redirectUri: 'http://localhost:8787/callback', scope: CURSOR_SCOPE },
   { clientId: CURSOR, redirectUri: 'https://www.cursor.com/agents/mcp/oauth/callback', scope: CURSOR_SCOPE },
 ];
-// Each pairs a client with a redirect its metadata document (or, for
-// Cursor, its registration) doesn't list.
+// Each pairs a client with a redirect its metadata document (or, for Cursor
+// and Grok Build, its registration) doesn't list.
 const UNDECLARED_REDIRECTS: OAuthClient[] = [
   { clientId: CLAUDE_CODE, redirectUri: CLAUDE_AI_CALLBACK },
   { clientId: CLAUDE_AI, redirectUri: 'http://localhost:3118/callback' },
   { clientId: CLAUDE_AI, redirectUri: 'https://attacker.example/callback' },
   { clientId: CURSOR, redirectUri: 'http://localhost:8788/callback', scope: CURSOR_SCOPE },
+  { clientId: GROK, redirectUri: 'https://attacker.example/callback', scope: GROK_SCOPE },
 ];
 const MAX_REDIRECTS = 8;
 
@@ -145,7 +159,7 @@ async function walkAuthorize(start: URL, redirectUri: string): Promise<Authorize
       break;
     }
     const response = await request(next, { redirect: 'manual' });
-    hops.push({ url: next.href, status: response.status });
+    hops.push({ url: next.href, status: response.status, challenged: response.headers.get('cf-mitigated') === 'challenge' });
     const location = response.headers.get('location');
     next = response.status >= 300 && response.status < 400 && location !== null ? new URL(location, next) : null;
   }
@@ -153,7 +167,7 @@ async function walkAuthorize(start: URL, redirectUri: string): Promise<Authorize
 }
 
 async function authorizeOutcome(endpoint: string, client: OAuthClient, resource: string): Promise<AuthorizeOutcome> {
-  return classifyAuthorizeChain(await walkAuthorize(authorizeUrl(endpoint, client, resource), client.redirectUri), client.redirectUri);
+  return classifyAuthorizeChain(await walkAuthorize(authorizeUrl(endpoint, client, resource), client.redirectUri), client.redirectUri, SIGN_IN_ORIGIN);
 }
 
 async function observeAuthorize(endpoint: string, resource: string, authServerMetadata: unknown): Promise<AuthorizeObservations> {
@@ -174,6 +188,7 @@ async function observeAuthorize(endpoint: string, resource: string, authServerMe
       resource,
     ),
     cursor: await outcomes(CURSOR_SIGN_INS),
+    grok: await outcomes(GROK_SIGN_INS),
     undeclaredRedirects: await outcomes(UNDECLARED_REDIRECTS),
   };
 }
@@ -235,7 +250,7 @@ async function main(): Promise<void> {
     for (const problem of problems) console.error(`  - ${problem}`);
     process.exit(1);
   }
-  console.log(`OK: claude.ai, Claude Code, VS Code, ChatGPT and Cursor reach sign-in for ${serverUrl} (slowest discovery or token request ${observations.slowestRequestMs} ms).`);
+  console.log(`OK: claude.ai, Claude Code, VS Code, ChatGPT, Cursor and Grok Build reach sign-in for ${serverUrl} (slowest discovery or token request ${observations.slowestRequestMs} ms).`);
 }
 
 function describeFailure(err: Error): string {

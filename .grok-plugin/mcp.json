@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "blindpay": {
+      "type": "http",
+      "url": "https://mcp.blindpay.com/mcp",
+      "oauth": {
+        "clientId": "S8w7ZxvMOl4Ws5LL",
+        "scopes": ["profile", "email", "offline_access"]
+      }
+    },
+    "blindpay-readonly": {
+      "type": "http",
+      "url": "https://mcp.blindpay.com/mcp/readonly",
+      "oauth": {
+        "clientId": "S8w7ZxvMOl4Ws5LL",
+        "scopes": ["profile", "email", "offline_access"]
+      }
+    }
+  }
+}

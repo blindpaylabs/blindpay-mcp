@@ -1,7 +1,7 @@
 /**
  * Pure rules for the remote MCP connector the Claude and OpenAI directories
  * list (https://mcp.blindpay.com/mcp/readonly). They encode the parts of
- * Claude's, VS Code's, ChatGPT's and Cursor's OAuth clients that are stricter than the
+ * Claude's, VS Code's, ChatGPT's, Cursor's and Grok Build's OAuth clients that are stricter than the
  * MCP spec: see https://claude.com/docs/connectors/building/authentication and
  * https://developers.openai.com/plugins/build/auth. No I/O here;
  * scripts/check-connector.mts makes the requests and passes what it saw.
@@ -17,6 +17,8 @@ export type AuthorizeOutcome = 'sign-in' | 'refused' | 'sent-to-redirect';
 export interface AuthorizeHop {
   url: string;
   status: number;
+  /** The response was a Cloudflare bot challenge (`cf-mitigated: challenge`), which browsers pass. */
+  challenged?: boolean;
 }
 
 export interface AuthorizeObservations {
@@ -42,6 +44,13 @@ export interface AuthorizeObservations {
    * DCR, so this client has to stay registered with both callbacks.
    */
   cursor: AuthorizeOutcome[];
+  /**
+   * Grok Build's pre-registered client with the scopes .grok-plugin/mcp.json
+   * pins, one outcome per loopback port probed: Grok picks a free port, and
+   * Clerk matches 127.0.0.1 on any port. Grok has no client metadata document
+   * and falls back to DCR, which Clerk lacks, so this client has to stay registered.
+   */
+  grok: AuthorizeOutcome[];
   /** One outcome per redirect the client never declared; each must be refused. */
   undeclaredRedirects: AuthorizeOutcome[];
 }
@@ -78,12 +87,17 @@ export function parseResourceMetadataUrl(wwwAuthenticate: string | null): string
 
 // A 200 alone doesn't prove the sign-in page rendered: an authorization
 // server can serve its error page with 200, or bounce the browser to the
-// redirect URI with ?error=. Only a clean 2xx that never did either counts.
-export function classifyAuthorizeChain(hops: AuthorizeHop[], redirectUri: string): AuthorizeOutcome {
+// redirect URI with ?error=. Only a clean 2xx that never did either counts,
+// or the bot challenge in front of the sign-in page at `signInOrigin`.
+export function classifyAuthorizeChain(hops: AuthorizeHop[], redirectUri: string, signInOrigin?: string): AuthorizeOutcome {
   if (hops.some((hop) => hop.url.startsWith(redirectUri))) return 'sent-to-redirect';
   const last = hops[hops.length - 1];
   const sawError = hops.some((hop) => new URL(hop.url).searchParams.has('error'));
-  if (last === undefined || sawError || last.status < 200 || last.status >= 300) return 'refused';
+  if (last === undefined || sawError) return 'refused';
+  // The sign-in page sits behind a bot challenge that answers scripts with
+  // 403, which browsers pass. A challenge anywhere else proves nothing.
+  if (last.challenged) return new URL(last.url).origin === signInOrigin ? 'sign-in' : 'refused';
+  if (last.status < 200 || last.status >= 300) return 'refused';
   return 'sign-in';
 }
 
@@ -180,6 +194,13 @@ function checkAuthorize({ authorize }: ConnectorObservations): string[] {
     problems.push(
       `Sign-in from Cursor failed for ${cursorMisses.length} of ${authorize.cursor.length} callbacks; keep the public Clerk client 4c2rAa08DqbVvnon ` +
         'with http://localhost:8787/callback, https://www.cursor.com/agents/mcp/oauth/callback and the scopes profile email offline_access.',
+    );
+  }
+  const grokMisses = authorize.grok.filter((outcome) => outcome !== 'sign-in');
+  if (grokMisses.length > 0) {
+    problems.push(
+      `Sign-in from Grok Build failed for ${grokMisses.length} of ${authorize.grok.length} loopback ports; keep the public Clerk client S8w7ZxvMOl4Ws5LL ` +
+        'with http://127.0.0.1:8789/callback (matched on any port) and the scopes profile email offline_access.',
     );
   }
   const accepted = authorize.undeclaredRedirects.filter((outcome) => outcome !== 'refused');
