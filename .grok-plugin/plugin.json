@@ -1,6 +1,6 @@
 {
   "name": "blindpay",
-  "version": "1.10.1",
+  "version": "1.10.2",
   "description": "Official BlindPay MCP for Grok Build: stablecoin payouts, payins, quotes, and customers. Ships full and readonly remote HTTP MCP over OAuth.",
   "author": {
     "name": "BlindPay",
@@ -16,5 +16,5 @@
     "blindpay payments",
     "blindpay stablecoin"
   ],
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.grok-plugin/mcp.json"
 }

@@ -1,7 +1,7 @@
 /**
  * Pure rules for the remote MCP connector the Claude and OpenAI directories
  * list (https://mcp.blindpay.com/mcp/readonly). They encode the parts of
- * Claude's, VS Code's, ChatGPT's and Cursor's OAuth clients that are stricter than the
+ * Claude's, VS Code's, ChatGPT's, Cursor's and Grok Build's OAuth clients that are stricter than the
  * MCP spec: see https://claude.com/docs/connectors/building/authentication and
  * https://developers.openai.com/plugins/build/auth. No I/O here;
  * scripts/check-connector.mts makes the requests and passes what it saw.
@@ -17,6 +17,8 @@ export type AuthorizeOutcome = 'sign-in' | 'refused' | 'sent-to-redirect';
 export interface AuthorizeHop {
   url: string;
   status: number;
+  /** The response was a Cloudflare bot challenge (`cf-mitigated: challenge`), which browsers pass. */
+  challenged?: boolean;
 }
 
 export interface AuthorizeObservations {
@@ -42,6 +44,12 @@ export interface AuthorizeObservations {
    * DCR, so this client has to stay registered with both callbacks.
    */
   cursor: AuthorizeOutcome[];
+  /**
+   * Grok Build's pre-registered client, with the loopback callback and scopes
+   * .grok-plugin/mcp.json pins. Grok has no client metadata document and falls
+   * back to DCR, which Clerk lacks, so this client has to stay registered.
+   */
+  grok: AuthorizeOutcome;
   /** One outcome per redirect the client never declared; each must be refused. */
   undeclaredRedirects: AuthorizeOutcome[];
 }
@@ -83,7 +91,12 @@ export function classifyAuthorizeChain(hops: AuthorizeHop[], redirectUri: string
   if (hops.some((hop) => hop.url.startsWith(redirectUri))) return 'sent-to-redirect';
   const last = hops[hops.length - 1];
   const sawError = hops.some((hop) => new URL(hop.url).searchParams.has('error'));
-  if (last === undefined || sawError || last.status < 200 || last.status >= 300) return 'refused';
+  if (last === undefined || sawError) return 'refused';
+  // The sign-in page sits behind a bot challenge that answers scripts with
+  // 403. Once the authorization server has handed off to it, that's sign-in;
+  // a challenge on the authorization server itself proves nothing.
+  if (last.challenged) return new URL(last.url).origin !== new URL(hops[0].url).origin ? 'sign-in' : 'refused';
+  if (last.status < 200 || last.status >= 300) return 'refused';
   return 'sign-in';
 }
 
@@ -180,6 +193,12 @@ function checkAuthorize({ authorize }: ConnectorObservations): string[] {
     problems.push(
       `Sign-in from Cursor failed for ${cursorMisses.length} of ${authorize.cursor.length} callbacks; keep the public Clerk client 4c2rAa08DqbVvnon ` +
         'with http://localhost:8787/callback, https://www.cursor.com/agents/mcp/oauth/callback and the scopes profile email offline_access.',
+    );
+  }
+  if (authorize.grok !== 'sign-in') {
+    problems.push(
+      `Sign-in from Grok Build ended as "${authorize.grok}"; keep the public Clerk client S8w7ZxvMOl4Ws5LL ` +
+        'with http://127.0.0.1:8789/callback and the scopes profile email offline_access.',
     );
   }
   const accepted = authorize.undeclaredRedirects.filter((outcome) => outcome !== 'refused');

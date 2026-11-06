@@ -19,7 +19,8 @@ const AUTHORIZE: AuthorizeObservations = {
   vscode: ['sign-in', 'sign-in'],
   chatgpt: 'sign-in',
   cursor: ['sign-in', 'sign-in'],
-  undeclaredRedirects: ['refused', 'refused', 'refused', 'refused'],
+  grok: 'sign-in',
+  undeclaredRedirects: ['refused', 'refused', 'refused', 'refused', 'refused'],
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -67,6 +68,22 @@ test('a chain that ends on a 2xx page with no error is the sign-in page', () => 
     { url: 'https://app.blindpay.com/sign-in/?redirect_url=x', status: 200 },
   ];
   assert.equal(classifyAuthorizeChain(hops, CALLBACK), 'sign-in');
+});
+
+test("the sign-in page's bot challenge counts as sign-in, but not one on the authorization server", () => {
+  const handedOff = [
+    { url: `${ISSUER}/oauth/authorize?client_id=x`, status: 302 },
+    { url: `${ISSUER}/oauth/authorize/continue?client_id=x`, status: 302 },
+    { url: 'https://app.blindpay.com/sign-in?redirect_url=x', status: 403, challenged: true },
+  ];
+  assert.equal(classifyAuthorizeChain(handedOff, CALLBACK), 'sign-in');
+  const challengedAtIssuer = [{ url: `${ISSUER}/oauth/authorize?client_id=x`, status: 403, challenged: true }];
+  assert.equal(classifyAuthorizeChain(challengedAtIssuer, CALLBACK), 'refused');
+  const handedOffWithError = [
+    { url: `${ISSUER}/oauth/authorize?client_id=x`, status: 302 },
+    { url: 'https://app.blindpay.com/sign-in?error=invalid_scope', status: 403, challenged: true },
+  ];
+  assert.equal(classifyAuthorizeChain(handedOffWithError, CALLBACK), 'refused');
 });
 
 test('a chain that ends on a 4xx or 5xx is a refusal', () => {
@@ -182,6 +199,13 @@ test("sign-in must start for Cursor's pre-registered client on both callbacks", 
   assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, cursor: ['sign-in', 'refused'] } }, /Cursor/).length, 1);
   assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, cursor: ['sent-to-redirect', 'sign-in'] } }, /Cursor/).length, 1);
   assert.equal(problemsMatching(o, /Cursor/).length, 0);
+});
+
+test("sign-in must start for Grok Build's pre-registered client", () => {
+  const o = validObservations();
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, grok: 'refused' } }, /Grok Build/).length, 1);
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, grok: 'sent-to-redirect' } }, /Grok Build/).length, 1);
+  assert.equal(problemsMatching(o, /Grok Build/).length, 0);
 });
 
 test('every undeclared redirect must be refused, and never followed back to the client', () => {

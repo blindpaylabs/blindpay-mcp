@@ -12,7 +12,7 @@ npm run check-tool-names  # Static gate: fails if any committed tool name exceed
 npm run check-plugin      # Static gate: fails if plugins/blindpay breaks a Claude directory rule
 npm run check-openai-plugin  # Static gate: fails if plugins/openai breaks an OpenAI submission limit or leaves /mcp/readonly
 npm run check-versions    # Static gate: fails if a store manifest's version differs from package.json
-npm run check-connector   # Live check: walks the OAuth sign-in of Claude, Claude Code, VS Code and ChatGPT against mcp.blindpay.com/mcp/readonly (not in CI)
+npm run check-connector   # Live check: walks the OAuth sign-in of Claude, Claude Code, VS Code, ChatGPT, Cursor and Grok Build against mcp.blindpay.com/mcp/readonly (not in CI)
 npm test                  # Unit tests for scripts/lib (node:test via tsx)
 npm run pack:openai       # ZIP for the ChatGPT/Codex plugin directory, in build-plugins/
 ```
@@ -104,6 +104,14 @@ plugins/cursor/             # Cursor Marketplace plugin, listed through
                             # the pre-registered public Clerk client
                             # 4c2rAa08DqbVvnon (Clerk has no DCR, Cursor no
                             # CIMD); scopes must stay explicit.
+.grok-plugin/               # Grok Build plugin, listed through
+                            # xai-org/plugin-marketplace pinned to a commit.
+                            # mcp.json signs in through the pre-registered
+                            # public Clerk client S8w7ZxvMOl4Ws5LL on
+                            # http://127.0.0.1:8789/callback (Grok has no CIMD
+                            # and falls back to DCR); callbackPort and scopes
+                            # must stay as registered. The root .mcp.json stays
+                            # client-free for Claude Code, which uses CIMD.
 llms-install.md             # Setup steps Cline (and other agents) follow.
 glama.json                  # Glama ownership claim (GitHub maintainers).
 scripts/generate.ts         # Legacy raw generator dump for manual debugging
@@ -263,4 +271,7 @@ pointer, `resource` equal to the URL exactly, CIMD with public-client auth
 that claude.ai's, Claude Code's, VS Code's and ChatGPT's client metadata
 documents reach the sign-in page while an undeclared redirect is refused.
 ChatGPT asks for every OIDC scope the authorization server advertises, so
-the probe sends those too.
+the probe sends those too. Cursor and Grok Build sign in through their
+pre-registered Clerk clients instead, on the callbacks those clients list.
+`app.blindpay.com` answers scripts with a Cloudflare bot challenge, so a chain
+that ends on that challenge after Clerk hands off counts as reaching sign-in.
