@@ -1,8 +1,8 @@
 {
   "name": "blindpay",
   "displayName": "BlindPay",
-  "version": "1.10.0",
-  "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and receivers. Remote HTTP at https://mcp.blindpay.com/mcp (full) and https://mcp.blindpay.com/mcp/readonly.",
+  "version": "1.10.1",
+  "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and customers. Remote HTTP at https://mcp.blindpay.com/mcp (full) and https://mcp.blindpay.com/mcp/readonly.",
   "author": {
     "name": "BlindPay",
     "email": "thayto@blindpay.com",
