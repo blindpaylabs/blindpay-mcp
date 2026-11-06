@@ -19,7 +19,7 @@ const AUTHORIZE: AuthorizeObservations = {
   vscode: ['sign-in', 'sign-in'],
   chatgpt: 'sign-in',
   cursor: ['sign-in', 'sign-in'],
-  grok: 'sign-in',
+  grok: ['sign-in', 'sign-in'],
   undeclaredRedirects: ['refused', 'refused', 'refused', 'refused', 'refused'],
 };
 
@@ -70,20 +70,27 @@ test('a chain that ends on a 2xx page with no error is the sign-in page', () => 
   assert.equal(classifyAuthorizeChain(hops, CALLBACK), 'sign-in');
 });
 
-test("the sign-in page's bot challenge counts as sign-in, but not one on the authorization server", () => {
+test("the sign-in page's bot challenge counts as sign-in, and a challenge anywhere else doesn't", () => {
+  const SIGN_IN = 'https://app.blindpay.com';
   const handedOff = [
     { url: `${ISSUER}/oauth/authorize?client_id=x`, status: 302 },
     { url: `${ISSUER}/oauth/authorize/continue?client_id=x`, status: 302 },
-    { url: 'https://app.blindpay.com/sign-in?redirect_url=x', status: 403, challenged: true },
+    { url: `${SIGN_IN}/sign-in?redirect_url=x`, status: 403, challenged: true },
   ];
-  assert.equal(classifyAuthorizeChain(handedOff, CALLBACK), 'sign-in');
+  assert.equal(classifyAuthorizeChain(handedOff, CALLBACK, SIGN_IN), 'sign-in');
+  assert.equal(classifyAuthorizeChain(handedOff, CALLBACK), 'refused');
   const challengedAtIssuer = [{ url: `${ISSUER}/oauth/authorize?client_id=x`, status: 403, challenged: true }];
-  assert.equal(classifyAuthorizeChain(challengedAtIssuer, CALLBACK), 'refused');
+  assert.equal(classifyAuthorizeChain(challengedAtIssuer, CALLBACK, SIGN_IN), 'refused');
+  const challengedElsewhere = [
+    { url: `${ISSUER}/oauth/authorize?client_id=x`, status: 302 },
+    { url: 'https://elsewhere.example/landing', status: 403, challenged: true },
+  ];
+  assert.equal(classifyAuthorizeChain(challengedElsewhere, CALLBACK, SIGN_IN), 'refused');
   const handedOffWithError = [
     { url: `${ISSUER}/oauth/authorize?client_id=x`, status: 302 },
-    { url: 'https://app.blindpay.com/sign-in?error=invalid_scope', status: 403, challenged: true },
+    { url: `${SIGN_IN}/sign-in?error=invalid_scope`, status: 403, challenged: true },
   ];
-  assert.equal(classifyAuthorizeChain(handedOffWithError, CALLBACK), 'refused');
+  assert.equal(classifyAuthorizeChain(handedOffWithError, CALLBACK, SIGN_IN), 'refused');
 });
 
 test('a chain that ends on a 4xx or 5xx is a refusal', () => {
@@ -201,10 +208,10 @@ test("sign-in must start for Cursor's pre-registered client on both callbacks", 
   assert.equal(problemsMatching(o, /Cursor/).length, 0);
 });
 
-test("sign-in must start for Grok Build's pre-registered client", () => {
+test("sign-in must start for Grok Build's pre-registered client on any loopback port", () => {
   const o = validObservations();
-  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, grok: 'refused' } }, /Grok Build/).length, 1);
-  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, grok: 'sent-to-redirect' } }, /Grok Build/).length, 1);
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, grok: ['sign-in', 'refused'] } }, /Grok Build/).length, 1);
+  assert.equal(problemsMatching({ ...o, authorize: { ...AUTHORIZE, grok: ['sent-to-redirect', 'sign-in'] } }, /Grok Build/).length, 1);
   assert.equal(problemsMatching(o, /Grok Build/).length, 0);
 });
 
@@ -220,7 +227,7 @@ test('when discovery fails, its problems are reported and the skipped sign-in ch
   const o = { ...validObservations(), resourceMetadata: null, authServerMetadata: null, bogusRefresh: null, authorize: null };
   const problems = evaluateConnector(o);
   assert.ok(problems.some((p) => /resource/.test(p)));
-  assert.ok(!problems.some((p) => /invalid_grant|claude\.ai|Claude Code|VS Code|ChatGPT/.test(p)));
+  assert.ok(!problems.some((p) => /invalid_grant|claude\.ai|Claude Code|VS Code|ChatGPT|Cursor|Grok Build/.test(p)));
   assert.equal(problems.filter((p) => /not checked/.test(p)).length, 1);
 });
 

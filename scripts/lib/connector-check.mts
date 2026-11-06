@@ -45,11 +45,12 @@ export interface AuthorizeObservations {
    */
   cursor: AuthorizeOutcome[];
   /**
-   * Grok Build's pre-registered client, with the loopback callback and scopes
-   * .grok-plugin/mcp.json pins. Grok has no client metadata document and falls
-   * back to DCR, which Clerk lacks, so this client has to stay registered.
+   * Grok Build's pre-registered client with the scopes .grok-plugin/mcp.json
+   * pins, one outcome per loopback port probed: Grok picks a free port, and
+   * Clerk matches 127.0.0.1 on any port. Grok has no client metadata document
+   * and falls back to DCR, which Clerk lacks, so this client has to stay registered.
    */
-  grok: AuthorizeOutcome;
+  grok: AuthorizeOutcome[];
   /** One outcome per redirect the client never declared; each must be refused. */
   undeclaredRedirects: AuthorizeOutcome[];
 }
@@ -86,16 +87,16 @@ export function parseResourceMetadataUrl(wwwAuthenticate: string | null): string
 
 // A 200 alone doesn't prove the sign-in page rendered: an authorization
 // server can serve its error page with 200, or bounce the browser to the
-// redirect URI with ?error=. Only a clean 2xx that never did either counts.
-export function classifyAuthorizeChain(hops: AuthorizeHop[], redirectUri: string): AuthorizeOutcome {
+// redirect URI with ?error=. Only a clean 2xx that never did either counts,
+// or the bot challenge in front of the sign-in page at `signInOrigin`.
+export function classifyAuthorizeChain(hops: AuthorizeHop[], redirectUri: string, signInOrigin?: string): AuthorizeOutcome {
   if (hops.some((hop) => hop.url.startsWith(redirectUri))) return 'sent-to-redirect';
   const last = hops[hops.length - 1];
   const sawError = hops.some((hop) => new URL(hop.url).searchParams.has('error'));
   if (last === undefined || sawError) return 'refused';
   // The sign-in page sits behind a bot challenge that answers scripts with
-  // 403. Once the authorization server has handed off to it, that's sign-in;
-  // a challenge on the authorization server itself proves nothing.
-  if (last.challenged) return new URL(last.url).origin !== new URL(hops[0].url).origin ? 'sign-in' : 'refused';
+  // 403, which browsers pass. A challenge anywhere else proves nothing.
+  if (last.challenged) return new URL(last.url).origin === signInOrigin ? 'sign-in' : 'refused';
   if (last.status < 200 || last.status >= 300) return 'refused';
   return 'sign-in';
 }
@@ -195,10 +196,11 @@ function checkAuthorize({ authorize }: ConnectorObservations): string[] {
         'with http://localhost:8787/callback, https://www.cursor.com/agents/mcp/oauth/callback and the scopes profile email offline_access.',
     );
   }
-  if (authorize.grok !== 'sign-in') {
+  const grokMisses = authorize.grok.filter((outcome) => outcome !== 'sign-in');
+  if (grokMisses.length > 0) {
     problems.push(
-      `Sign-in from Grok Build ended as "${authorize.grok}"; keep the public Clerk client S8w7ZxvMOl4Ws5LL ` +
-        'with http://127.0.0.1:8789/callback and the scopes profile email offline_access.',
+      `Sign-in from Grok Build failed for ${grokMisses.length} of ${authorize.grok.length} loopback ports; keep the public Clerk client S8w7ZxvMOl4Ws5LL ` +
+        'with http://127.0.0.1:8789/callback (matched on any port) and the scopes profile email offline_access.',
     );
   }
   const accepted = authorize.undeclaredRedirects.filter((outcome) => outcome !== 'refused');
