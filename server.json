@@ -13,13 +13,13 @@
     { "src": "https://raw.githubusercontent.com/blindpaylabs/blindpay-mcp/main/assets/icon-512.png", "mimeType": "image/png", "sizes": ["512x512"], "theme": "light" },
     { "src": "https://raw.githubusercontent.com/blindpaylabs/blindpay-mcp/main/assets/icon-light-512.png", "mimeType": "image/png", "sizes": ["512x512"], "theme": "dark" }
   ],
-  "version": "1.10.0",
+  "version": "1.10.1",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@blindpay/mcp",
-      "version": "1.10.0",
+      "version": "1.10.1",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {
