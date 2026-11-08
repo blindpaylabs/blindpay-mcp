@@ -103,7 +103,8 @@ plugins/cursor/             # Cursor Marketplace plugin, listed through
                             # .cursor-plugin/marketplace.json. OAuth through
                             # the pre-registered public Clerk client
                             # 4c2rAa08DqbVvnon (Clerk has no DCR, Cursor no
-                            # CIMD); scopes must stay explicit.
+                            # CIMD); scopes must stay explicit. Its plugin.json
+                            # version follows package.json (sync writes it).
 .grok-plugin/               # Grok Build plugin, listed through
                             # xai-org/plugin-marketplace pinned to a commit.
                             # mcp.json signs in through the pre-registered
@@ -240,9 +241,10 @@ no-op), else **minor** if any tool name was added or removed, else
 
 The store manifests carry the same version, and `sync.mts` writes it into
 them: `server.json` (MCP Registry), `gemini-extension.json` (Gemini CLI),
-`.claude-plugin/plugin.json` and its `marketplace.json` entry (Claude Code)
-and `.grok-plugin/plugin.json` (Grok Build). Clients compare these versions
-to decide whether an installed plugin has an update. A hand edit to
+`.claude-plugin/plugin.json` and its `marketplace.json` entry (Claude Code),
+`.grok-plugin/plugin.json` (Grok Build) and
+`plugins/cursor/.cursor-plugin/plugin.json` (Cursor). Clients compare these
+versions to decide whether an installed plugin has an update. A hand edit to
 `package.json`'s version (a major bump, or a patch that ships a manifest-only
 change such as listing copy or the Grok plugin's config) has to set
 `SERVER_VERSION` in `src/index.ts` and these manifests to the same value by

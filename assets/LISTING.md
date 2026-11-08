@@ -1,6 +1,6 @@
 # Listing copy
 
-Paste these into store forms as written. When one changes, change it here and in `server.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `gemini-extension.json`, `.grok-plugin/plugin.json` and `plugins/cursor/.cursor-plugin/plugin.json`.
+Paste these into store forms as written. When one changes, change it here and in `server.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `gemini-extension.json`, `.grok-plugin/plugin.json`, `plugins/cursor/.cursor-plugin/plugin.json` and `.cursor-plugin/marketplace.json`.
 
 ## Identity
 
