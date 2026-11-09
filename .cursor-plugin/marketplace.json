@@ -11,6 +11,7 @@
     {
       "name": "blindpay",
       "source": "plugins/cursor",
+      "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and customers for global payments.",
       "category": "finance",
       "tags": ["payments", "stablecoin", "fintech"]
     }

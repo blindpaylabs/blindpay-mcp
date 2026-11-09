@@ -1,8 +1,7 @@
 /**
- * The store manifests whose "version" follows package.json: the MCP Registry
- * entry, the Gemini CLI extension, the Claude Code plugin and its marketplace
- * entry, and the Grok Build plugin. Pure helpers, used by scripts/sync.mts
- * (which writes them) and scripts/check-versions.mts (the CI gate).
+ * The store manifests whose "version" follows package.json (listed in
+ * VERSIONED_MANIFESTS below). Pure helpers, used by scripts/sync.mts (which
+ * writes them) and scripts/check-versions.mts (the CI gate).
  * plugins/blindpay and plugins/openai are not here: each carries its own
  * version, raised on every directory submission.
  */
@@ -20,6 +19,7 @@ export const VERSIONED_MANIFESTS: readonly VersionedManifest[] = [
   { path: '.claude-plugin/plugin.json', versionFieldCount: 1 },
   { path: '.claude-plugin/marketplace.json', versionFieldCount: 1 },
   { path: '.grok-plugin/plugin.json', versionFieldCount: 1 },
+  { path: 'plugins/cursor/.cursor-plugin/plugin.json', versionFieldCount: 1 },
 ];
 
 const VERSION_FIELD = /("version":\s*")(\d+\.\d+\.\d+)(")/g;
