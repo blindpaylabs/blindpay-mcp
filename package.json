@@ -1,7 +1,7 @@
 {
   "name": "@blindpay/mcp",
   "mcpName": "com.blindpay/mcp",
-  "version": "1.10.2",
+  "version": "1.10.3",
   "description": "Official MCP Server for BlindPay API - Stablecoin API for global payments",
   "type": "module",
   "main": "build/index.js",
@@ -51,7 +51,7 @@
     "type": "git",
     "url": "git+https://github.com/blindpaylabs/blindpay-mcp.git"
   },
-  "homepage": "https://blindpay.com",
+  "homepage": "https://blindpay.com/mcp",
   "bugs": {
     "url": "https://github.com/blindpaylabs/blindpay-mcp/issues"
   },

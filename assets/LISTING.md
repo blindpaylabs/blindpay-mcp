@@ -32,7 +32,7 @@ Paste these into store forms as written. When one changes, change it here and in
 
 | Field | URL |
 | --- | --- |
-| Website | https://blindpay.com |
+| Website | https://blindpay.com/mcp |
 | Docs | https://blindpay.com/docs |
 | Repository | https://github.com/blindpaylabs/blindpay-mcp |
 | Privacy policy | https://blindpay.com/privacy-policy |

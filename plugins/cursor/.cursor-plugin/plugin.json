@@ -2,12 +2,12 @@
   "name": "blindpay",
   "displayName": "BlindPay",
   "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and customers for global payments. Connects to the hosted server; you sign in with your BlindPay account.",
-  "version": "1.10.2",
+  "version": "1.10.3",
   "author": {
     "name": "BlindPay",
     "email": "thayto@blindpay.com"
   },
-  "homepage": "https://blindpay.com/docs",
+  "homepage": "https://blindpay.com/mcp",
   "repository": "https://github.com/blindpaylabs/blindpay-mcp",
   "license": "MIT",
   "keywords": ["blindpay", "stablecoin", "payments", "payouts", "payins", "fintech", "mcp"],
