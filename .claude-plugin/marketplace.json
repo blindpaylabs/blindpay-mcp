@@ -12,9 +12,9 @@
       "name": "blindpay",
       "source": "./",
       "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and customers for global payments.",
-      "version": "1.10.2",
+      "version": "1.10.3",
       "category": "finance",
-      "homepage": "https://blindpay.com/docs",
+      "homepage": "https://blindpay.com/mcp",
       "repository": "https://github.com/blindpaylabs/blindpay-mcp",
       "license": "MIT",
       "keywords": [

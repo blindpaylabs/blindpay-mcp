@@ -3,7 +3,7 @@
   "name": "com.blindpay/mcp",
   "title": "BlindPay",
   "description": "Official BlindPay MCP server: stablecoin payouts, payins, quotes and customers for global payments.",
-  "websiteUrl": "https://blindpay.com",
+  "websiteUrl": "https://blindpay.com/mcp",
   "repository": {
     "url": "https://github.com/blindpaylabs/blindpay-mcp",
     "source": "github"
@@ -13,13 +13,13 @@
     { "src": "https://raw.githubusercontent.com/blindpaylabs/blindpay-mcp/main/assets/icon-512.png", "mimeType": "image/png", "sizes": ["512x512"], "theme": "light" },
     { "src": "https://raw.githubusercontent.com/blindpaylabs/blindpay-mcp/main/assets/icon-light-512.png", "mimeType": "image/png", "sizes": ["512x512"], "theme": "dark" }
   ],
-  "version": "1.10.2",
+  "version": "1.10.3",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@blindpay/mcp",
-      "version": "1.10.2",
+      "version": "1.10.3",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {
