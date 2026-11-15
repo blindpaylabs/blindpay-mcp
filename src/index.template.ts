@@ -498,14 +498,11 @@ async function executeApiTool(
   allSecuritySchemes: Record<string, any>
 ): Promise<CallToolResult> {
   try {
-    // The SDK has validated toolArgs against the tool's schema by now.
     // BLINDPAY_INSTANCE_ID then wins over a model-supplied value, as the
     // hosted server's credential-bound instance does: the key only works on
     // its own instance anyway.
     const instanceParam = envInstanceParam(definition);
-    if (instanceParam) {
-      toolArgs = { ...toolArgs, [instanceParam]: ENV_INSTANCE_ID };
-    }
+    const args: JsonObject = instanceParam ? { ...toolArgs, [instanceParam]: ENV_INSTANCE_ID } : toolArgs;
 
     // Prepare URL, query parameters, headers, and request body
     let urlPath = definition.pathTemplate;
@@ -515,7 +512,7 @@ async function executeApiTool(
 
     // Apply parameters to the URL path, query, or headers
     definition.executionParameters.forEach((param) => {
-      const value = toolArgs[param.name];
+      const value = args[param.name];
       if (typeof value !== 'undefined' && value !== null) {
         if (param.in === 'path') {
           urlPath = urlPath.replace(`{${param.name}}`, encodeURIComponent(String(value)));
@@ -536,8 +533,8 @@ async function executeApiTool(
     const requestUrl = API_BASE_URL ? `${API_BASE_URL}${urlPath}` : urlPath;
 
     // Handle request body if needed
-    if (definition.requestBodyContentType && typeof toolArgs['requestBody'] !== 'undefined') {
-      requestBodyData = toolArgs['requestBody'];
+    if (definition.requestBodyContentType && typeof args['requestBody'] !== 'undefined') {
+      requestBodyData = args['requestBody'];
       headers['content-type'] = definition.requestBodyContentType;
     }
 

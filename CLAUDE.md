@@ -79,6 +79,9 @@ scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, the
 scripts/lib/openapi.mts     # Ports of the hosted server's spec helpers
                             # (dereference, input schemas, webhook events),
                             # with openapi.test.mts next to it.
+scripts/stdio-server.test.mts  # Wire tests: spawns src/index.ts and speaks
+                            # raw JSON-RPC in both MCP eras (2026-07-28 and
+                            # the 2025 initialize fallback). Runs in npm test.
 scripts/check-plugin.mts    # Claude directory gate for plugins/blindpay,
                             # used by ci.yml. Reads tracked files only.
 scripts/lib/plugin-check.mts  # Pure rules behind check-plugin, with
@@ -160,8 +163,9 @@ can't drift:
    natively (`server/discover`, per-request `_meta`, `resultType`,
    `ttlMs`/`cacheScope`) and still answers a 2025-era `initialize` from the
    same factory, so older clients keep working. Don't go back to a
-   hand-wired `StdioServerTransport` + `connect`: that path is 2025-only.
-   `main()` passes `serveStdio` a `versionCheckedStdioTransport()`, which
+   hand-wired `StdioServerTransport` + `connect`: that path is 2025-only
+   (the one `StdioServerTransport` left is the one wrapped below, handed to
+   `serveStdio`). `main()` passes `serveStdio` a `versionCheckedStdioTransport()`, which
    answers -32022 to any request whose `_meta` names a revision outside
    `MODERN_PROTOCOL_VERSIONS`: the spec checks the version on every request,
    and `serveStdio` 2.4.0 only checks the opening one. Keep
