@@ -25,6 +25,7 @@ This MCP server provides AI assistants (Cursor, Claude Code, Codex, etc.) with a
 | URL / command | `https://mcp.blindpay.com/mcp` | `npx -y @blindpay/mcp` |
 | Auth | OAuth 2.1 sign-in with your BlindPay account (PKCE) | `BLINDPAY_API_KEY` env var |
 | Transport | Streamable HTTP | stdio |
+| MCP protocol | 2026-07-28, with 2025-era fallback | 2026-07-28, with 2025-era fallback |
 | Works in | Claude, ChatGPT, Cursor, VS Code, Grok, any remote-capable client | Any stdio MCP client |
 
 Both expose the same tools, the same server instructions (call order, units, test amounts) and the same webhook event resources at `blindpay://webhooks/events`. The remote server needs no API key: the client opens a browser, you sign in and pick an instance, and the token is scoped to your role on it.

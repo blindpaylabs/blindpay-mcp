@@ -1,7 +1,7 @@
 {
   "name": "@blindpay/mcp",
   "mcpName": "com.blindpay/mcp",
-  "version": "1.10.3",
+  "version": "1.10.4",
   "description": "Official MCP Server for BlindPay API - Stablecoin API for global payments",
   "type": "module",
   "main": "build/index.js",
@@ -30,7 +30,7 @@
     "check-openai-plugin": "node --import tsx scripts/check-openai-plugin.mts",
     "check-versions": "node --import tsx scripts/check-versions.mts",
     "check-connector": "node --import tsx scripts/check-connector.mts",
-    "test": "node --import tsx --test scripts/lib/*.test.mts",
+    "test": "node --import tsx --test scripts/lib/*.test.mts scripts/*.test.mts",
     "pack:openai": "rm -rf build-plugins && mkdir -p build-plugins/openai && cp -R plugins/openai/. build-plugins/openai/ && cp -R plugins/blindpay/skills build-plugins/openai/ && cd build-plugins/openai && zip -qrX ../blindpay-openai.zip . -x '.*' '*/.*'",
     "prepublishOnly": "npm run build"
   },
@@ -59,10 +59,9 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/server": "^2.4.0",
     "axios": "^1.20.0",
-    "dotenv": "^16.4.5",
-    "zod": "^3.24.3"
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
