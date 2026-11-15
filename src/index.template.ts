@@ -9,18 +9,22 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  type Tool,
-  type ToolAnnotations,
+  McpServer,
+  PROTOCOL_VERSION_META_KEY,
+  fromJsonSchema,
+  isJSONRPCRequest,
+  UnsupportedProtocolVersionError,
   type CallToolResult,
-  type CallToolRequest,
-} from '@modelcontextprotocol/sdk/types.js';
+  type JSONRPCErrorResponse,
+  type JSONRPCRequest,
+  type JsonSchemaType,
+  type ToolAnnotations,
+  type Transport,
+} from '@modelcontextprotocol/server';
+import { StdioServerTransport, serveStdio } from '@modelcontextprotocol/server/stdio';
+import { CfWorkerJsonSchemaValidator } from '@modelcontextprotocol/server/validators/cf-worker';
 
-import { z, ZodError } from 'zod';
 import axios, { type AxiosRequestConfig, type AxiosError } from 'axios';
 
 /**
@@ -76,7 +80,8 @@ const DOCS =
   'Docs for agents: https://blindpay.com/docs/llms.txt (full text at https://blindpay.com/docs/llms-full.txt).';
 
 /**
- * Server instructions the full profile sends on `initialize`. Same text as the
+ * Server instructions the full profile sends (in `server/discover` on
+ * 2026-07-28, in `initialize` on 2025-era clients). Same text as the
  * hosted server's SERVER_INSTRUCTIONS (blindpay-v2
  * apps/api/src/shared/public-mcp/instructions.ts) except the second sentence,
  * which depends on BLINDPAY_INSTANCE_ID here. Change both together.
@@ -131,24 +136,13 @@ ${DOCS}`;
 
 /**
  * What the profile changes besides the tool list, mirroring the hosted
- * endpoints: the instructions sent on `initialize`, and whether trace_id is
+ * endpoints: the server instructions, and whether trace_id is
  * dropped from JSON responses (only /mcp/readonly drops it).
  */
 const PROFILE =
   TOOL_PROFILE === 'readonly'
     ? { instructions: READ_ONLY_SERVER_INSTRUCTIONS, dropTraceId: true }
     : { instructions: SERVER_INSTRUCTIONS, dropTraceId: false };
-
-/**
- * MCP Server instance
- */
-const mcpServer = new McpServer(
-  { name: SERVER_NAME, version: SERVER_VERSION },
-  { capabilities: { tools: {} }, instructions: PROFILE.instructions }
-);
-
-// Access the underlying Server for handler registration
-const server = mcpServer.server;
 
 /**
  * Map of tool definitions by name
@@ -242,7 +236,7 @@ function envInstanceParam(def: McpToolDefinition): string | undefined {
  * the model has to pass the instance id, so the generated schema is kept.
  * Arguments are validated against this schema, as on the hosted server.
  */
-function clientInputSchema(def: McpToolDefinition): any {
+function clientInputSchema(def: McpToolDefinition): JsonSchemaType {
   const param = envInstanceParam(def);
   if (!param) return def.inputSchema;
   const { required: generatedRequired = [], ...schema } = def.inputSchema;
@@ -260,34 +254,56 @@ function clientInputSchema(def: McpToolDefinition): any {
   };
 }
 
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const toolsForClient: Tool[] = Array.from(toolDefinitionMap.values())
-    .filter(isToolInProfile)
-    .map((def) => ({
-      name: def.name,
-      title: toolTitle(def.name),
-      description: def.description,
-      inputSchema: clientInputSchema(def),
-      annotations: toolAnnotations(def),
-    }));
-  return { tools: toolsForClient };
-});
+/**
+ * Validates tool arguments against each tool's JSON Schema before the handler
+ * runs. `@cfworker/json-schema` interprets the schema; the SDK's Node default
+ * (Ajv) compiles it with `new Function`, and this server keeps eval out.
+ */
+const schemaValidator = new CfWorkerJsonSchemaValidator();
 
-server.setRequestHandler(
-  CallToolRequestSchema,
-  async (request: CallToolRequest): Promise<CallToolResult> => {
-    const { name: toolName, arguments: toolArgs } = request.params;
-    const toolDefinition = toolDefinitionMap.get(toolName);
-    if (!toolDefinition || !isToolInProfile(toolDefinition)) {
-      console.error(`Error: Unknown tool requested: ${toolName}`);
-      return {
-        content: [{ type: 'text', text: `Error: Unknown tool requested: ${toolName}` }],
-        isError: true,
-      };
+/**
+ * The profile's tools in spec order, with their argument schemas compiled
+ * once: `serveStdio` may call the server factory more than once (a
+ * `server/discover` probe, then the connection).
+ */
+const profileTools = Array.from(toolDefinitionMap.values())
+  .filter(isToolInProfile)
+  .map((def) => ({
+    def,
+    inputSchema: fromJsonSchema(clientInputSchema(def), schemaValidator),
+  }));
+
+/**
+ * One MCP server for the profile: the tools, then the webhook resources.
+ * The SDK answers both protocol eras from it (2026-07-28 `server/discover`
+ * and per-request `_meta`, or the 2025 `initialize` handshake), so nothing
+ * here depends on which one the client speaks. Both lists are fixed for the
+ * life of the process, so `listChanged` is false: the SDK would otherwise
+ * advertise list-changed notifications it never sends.
+ */
+function buildServer(): McpServer {
+  const mcpServer = new McpServer(
+    { name: SERVER_NAME, version: SERVER_VERSION },
+    {
+      instructions: PROFILE.instructions,
+      capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
     }
-    return await executeApiTool(toolName, toolDefinition, toolArgs ?? {}, securitySchemes);
+  );
+  for (const { def, inputSchema } of profileTools) {
+    mcpServer.registerTool(
+      def.name,
+      {
+        title: toolTitle(def.name),
+        description: def.description,
+        inputSchema,
+        annotations: toolAnnotations(def),
+      },
+      async (args) => executeApiTool(def.name, def, (args ?? {}) as JsonObject, securitySchemes)
+    );
   }
-);
+  registerWebhookResources(mcpServer);
+  return mcpServer;
+}
 
 /** Same shape as WebhookEvent in scripts/lib/openapi.mts, which produces it. */
 interface WebhookEvent {
@@ -312,32 +328,33 @@ const WEBHOOK_EVENTS_URI = 'blindpay://webhooks/events';
  * resource per event with its payload schema. Same names, URIs and text as
  * `webhookResources` on the hosted server.
  */
-function registerWebhookResources(): void {
-  const resources = [
-    {
-      name: 'webhook-events',
-      uri: WEBHOOK_EVENTS_URI,
-      title: 'Webhook events',
-      description: 'Every webhook event BlindPay sends, with a link to each payload schema',
-      text: JSON.stringify(
-        WEBHOOK_EVENTS.map(({ event, description, uri }) => ({ event, description, uri })),
-        null,
-        2
-      ),
-    },
-    ...WEBHOOK_EVENTS.map((event) => ({
-      name: `webhook-event-${event.event}`,
-      uri: event.uri,
-      title: `Webhook ${event.event}`,
-      description: event.description,
-      text: JSON.stringify(
-        { event: event.event, description: event.description, payload_schema: event.payloadSchema },
-        null,
-        2
-      ),
-    })),
-  ];
-  for (const resource of resources) {
+const WEBHOOK_RESOURCES = [
+  {
+    name: 'webhook-events',
+    uri: WEBHOOK_EVENTS_URI,
+    title: 'Webhook events',
+    description: 'Every webhook event BlindPay sends, with a link to each payload schema',
+    text: JSON.stringify(
+      WEBHOOK_EVENTS.map(({ event, description, uri }) => ({ event, description, uri })),
+      null,
+      2
+    ),
+  },
+  ...WEBHOOK_EVENTS.map((event) => ({
+    name: `webhook-event-${event.event}`,
+    uri: event.uri,
+    title: `Webhook ${event.event}`,
+    description: event.description,
+    text: JSON.stringify(
+      { event: event.event, description: event.description, payload_schema: event.payloadSchema },
+      null,
+      2
+    ),
+  })),
+];
+
+function registerWebhookResources(mcpServer: McpServer): void {
+  for (const resource of WEBHOOK_RESOURCES) {
     mcpServer.registerResource(
       resource.name,
       resource.uri,
@@ -348,8 +365,6 @@ function registerWebhookResources(): void {
     );
   }
 }
-
-registerWebhookResources();
 
 /**
  * Type definition for cached OAuth tokens
@@ -471,7 +486,8 @@ async function acquireOAuth2Token(
  *
  * @param toolName Name of the tool to execute
  * @param definition Tool definition
- * @param toolArgs Arguments provided by the user
+ * @param toolArgs Arguments, already validated by the SDK against the tool's
+ *   input schema (the one the client was given: see clientInputSchema)
  * @param allSecuritySchemes Security schemes from the OpenAPI spec
  * @returns Call tool result
  */
@@ -482,34 +498,11 @@ async function executeApiTool(
   allSecuritySchemes: Record<string, any>
 ): Promise<CallToolResult> {
   try {
-    // Validate arguments against the schema the client was given
-    let validatedArgs: JsonObject;
-    try {
-      const zodSchema = getZodSchemaFromJsonSchema(clientInputSchema(definition), toolName);
-      const argsToParse = typeof toolArgs === 'object' && toolArgs !== null ? toolArgs : {};
-      validatedArgs = zodSchema.parse(argsToParse);
-    } catch (error: unknown) {
-      if (error instanceof ZodError) {
-        const validationErrorMessage = `Invalid arguments for tool '${toolName}': ${error.errors.map((e) => `${e.path.join('.')} (${e.code}): ${e.message}`).join(', ')}`;
-        return { content: [{ type: 'text', text: validationErrorMessage }], isError: true };
-      } else {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return {
-          content: [
-            { type: 'text', text: `Internal error during validation setup: ${errorMessage}` },
-          ],
-          isError: true,
-        };
-      }
-    }
-
     // BLINDPAY_INSTANCE_ID then wins over a model-supplied value, as the
     // hosted server's credential-bound instance does: the key only works on
     // its own instance anyway.
     const instanceParam = envInstanceParam(definition);
-    if (instanceParam) {
-      validatedArgs = { ...validatedArgs, [instanceParam]: ENV_INSTANCE_ID };
-    }
+    const args: JsonObject = instanceParam ? { ...toolArgs, [instanceParam]: ENV_INSTANCE_ID } : toolArgs;
 
     // Prepare URL, query parameters, headers, and request body
     let urlPath = definition.pathTemplate;
@@ -519,7 +512,7 @@ async function executeApiTool(
 
     // Apply parameters to the URL path, query, or headers
     definition.executionParameters.forEach((param) => {
-      const value = validatedArgs[param.name];
+      const value = args[param.name];
       if (typeof value !== 'undefined' && value !== null) {
         if (param.in === 'path') {
           urlPath = urlPath.replace(`{${param.name}}`, encodeURIComponent(String(value)));
@@ -540,8 +533,8 @@ async function executeApiTool(
     const requestUrl = API_BASE_URL ? `${API_BASE_URL}${urlPath}` : urlPath;
 
     // Handle request body if needed
-    if (definition.requestBodyContentType && typeof validatedArgs['requestBody'] !== 'undefined') {
-      requestBodyData = validatedArgs['requestBody'];
+    if (definition.requestBodyContentType && typeof args['requestBody'] !== 'undefined') {
+      requestBodyData = args['requestBody'];
       headers['content-type'] = definition.requestBodyContentType;
     }
 
@@ -787,13 +780,72 @@ async function executeApiTool(
 }
 
 /**
+ * The 2026-07-28+ revisions this server speaks: what `server/discover`
+ * answers with `supportedVersions` under the pinned SDK. The SDK doesn't
+ * export the list; scripts/stdio-server.test.mts fails if they drift apart.
+ */
+const MODERN_PROTOCOL_VERSIONS = ['2026-07-28'];
+
+/**
+ * The -32022 answer for a request whose `_meta` names a revision this server
+ * doesn't speak, or undefined when it names a supported one or none (the
+ * 2025 era). A non-string claim is left to the SDK, which rejects a malformed
+ * envelope with -32602.
+ */
+function unsupportedVersionError(request: JSONRPCRequest): JSONRPCErrorResponse | undefined {
+  const meta = (request.params as { _meta?: Record<string, unknown> } | undefined)?._meta;
+  const requested = meta?.[PROTOCOL_VERSION_META_KEY];
+  if (typeof requested !== 'string' || MODERN_PROTOCOL_VERSIONS.includes(requested)) return undefined;
+  const { code, message, data } = new UnsupportedProtocolVersionError({ supported: MODERN_PROTOCOL_VERSIONS, requested });
+  return { jsonrpc: '2.0', id: request.id, error: { code, message, data } };
+}
+
+/**
+ * Stdio transport that answers any request claiming a revision this server
+ * doesn't speak with UnsupportedProtocolVersionError (-32022). The spec checks
+ * the version per request ("the server accepts or rejects each request
+ * independently"); serveStdio 2.4.0 checks it only on the opening message and
+ * passes later ones through. The error is the one serveStdio gives an opening
+ * request, so a client sees the same answer either way. Requests without a
+ * claim (the 2025 era) pass through untouched. StdioServerTransport has no
+ * send options, session id or protocol-version hook, so `start`, `send` and
+ * `close` are all there is to forward.
+ *
+ * Remove this wrapper, MODERN_PROTOCOL_VERSIONS and unsupportedVersionError
+ * once serveStdio checks the version on every request: the "checked on every
+ * request" test in scripts/stdio-server.test.mts then passes without them.
+ */
+function versionCheckedStdioTransport(): Transport {
+  const inner = new StdioServerTransport();
+  const outer: Transport = {
+    start: () => inner.start(),
+    send: (message) => inner.send(message),
+    close: () => inner.close(),
+  };
+  inner.onclose = () => outer.onclose?.();
+  inner.onerror = (error) => outer.onerror?.(error);
+  inner.onmessage = (message) => {
+    const rejection = isJSONRPCRequest(message) ? unsupportedVersionError(message) : undefined;
+    if (!rejection) {
+      outer.onmessage?.(message);
+      return;
+    }
+    inner.send(rejection).catch((error: Error) => outer.onerror?.(error));
+  };
+  return outer;
+}
+
+/**
  * Main function to start the server
  */
 async function main() {
-  // Set up stdio transport
+  // serveStdio reads the client's opening message and serves 2026-07-28
+  // natively, or a 2025-era `initialize` handshake from the same factory.
   try {
-    const transport = new StdioServerTransport();
-    await mcpServer.server.connect(transport);
+    serveStdio(buildServer, {
+      transport: versionCheckedStdioTransport(),
+      onerror: (error) => console.error('MCP stdio error:', error),
+    });
     console.error(`${SERVER_NAME} MCP Server (v${SERVER_VERSION}, profile=${TOOL_PROFILE}) running on stdio`);
   } catch (error) {
     console.error('Error during server startup:', error);
@@ -863,148 +915,4 @@ function formatApiError(error: AxiosError): string {
     message += `API Request Setup Error: ${error.message}`;
   }
   return message;
-}
-
-/**
- * Recursively converts a JSON Schema to a Zod schema for runtime validation.
- * This implementation avoids using eval() for security reasons.
- *
- * @param schema JSON Schema node
- * @param visited Set of visited $ref paths to prevent infinite recursion
- * @returns Zod schema
- */
-function jsonSchemaToZodSchema(schema: any, visited: Set<string> = new Set()): z.ZodTypeAny {
-  if (!schema || typeof schema !== 'object') {
-    return z.any();
-  }
-
-  if (schema.$ref) {
-    if (visited.has(schema.$ref)) {
-      return z.any();
-    }
-    visited.add(schema.$ref);
-  }
-
-  if (schema.anyOf) {
-    const schemas = schema.anyOf.map((s: any) => jsonSchemaToZodSchema(s, visited));
-    return schemas.length > 0 ? z.union(schemas as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]) : z.any();
-  }
-
-  if (schema.oneOf) {
-    const schemas = schema.oneOf.map((s: any) => jsonSchemaToZodSchema(s, visited));
-    return schemas.length > 0 ? z.union(schemas as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]) : z.any();
-  }
-
-  if (schema.allOf) {
-    return schema.allOf.reduce(
-      (acc: z.ZodTypeAny, s: any) => acc.and(jsonSchemaToZodSchema(s, visited)),
-      z.object({})
-    );
-  }
-
-  if (schema.enum) {
-    if (schema.enum.length === 0) return z.any();
-    if (schema.enum.length === 1) return z.literal(schema.enum[0]);
-    return z.enum(schema.enum as [string, ...string[]]);
-  }
-
-  if (schema.const !== undefined) {
-    return z.literal(schema.const);
-  }
-
-  const type = schema.type;
-
-  if (Array.isArray(type)) {
-    const schemas = type.map((t: string) => jsonSchemaToZodSchema({ ...schema, type: t }, visited));
-    return z.union(schemas as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
-  }
-
-  switch (type) {
-    case 'string': {
-      let s = z.string();
-      if (typeof schema.minLength === 'number') s = s.min(schema.minLength);
-      if (typeof schema.maxLength === 'number') s = s.max(schema.maxLength);
-      if (schema.pattern) {
-        try {
-          s = s.regex(new RegExp(schema.pattern));
-        } catch {
-          // Invalid regex pattern, skip
-        }
-      }
-      if (schema.format === 'email') s = s.email();
-      if (schema.format === 'uri' || schema.format === 'url') s = s.url();
-      if (schema.format === 'uuid') s = s.uuid();
-      if (schema.format === 'date-time') s = s.datetime();
-      return s;
-    }
-
-    case 'number':
-    case 'integer': {
-      let n = type === 'integer' ? z.number().int() : z.number();
-      if (typeof schema.minimum === 'number') n = n.min(schema.minimum);
-      if (typeof schema.maximum === 'number') n = n.max(schema.maximum);
-      if (typeof schema.exclusiveMinimum === 'number') n = n.gt(schema.exclusiveMinimum);
-      if (typeof schema.exclusiveMaximum === 'number') n = n.lt(schema.exclusiveMaximum);
-      if (typeof schema.multipleOf === 'number') n = n.multipleOf(schema.multipleOf);
-      return n;
-    }
-
-    case 'boolean':
-      return z.boolean();
-
-    case 'null':
-      return z.null();
-
-    case 'array': {
-      const itemSchema = schema.items ? jsonSchemaToZodSchema(schema.items, visited) : z.any();
-      let a = z.array(itemSchema);
-      if (typeof schema.minItems === 'number') a = a.min(schema.minItems);
-      if (typeof schema.maxItems === 'number') a = a.max(schema.maxItems);
-      return a;
-    }
-
-    case 'object': {
-      const properties = schema.properties || {};
-      const required = new Set(schema.required || []);
-      const shape: Record<string, z.ZodTypeAny> = {};
-
-      for (const [key, propSchema] of Object.entries(properties)) {
-        const propZod = jsonSchemaToZodSchema(propSchema, visited);
-        shape[key] = required.has(key) ? propZod : propZod.optional();
-      }
-
-      const obj = z.object(shape);
-
-      if (schema.additionalProperties === false) {
-        return obj.strict() as z.ZodTypeAny;
-      }
-      return obj.passthrough() as z.ZodTypeAny;
-    }
-
-    default:
-      return z.any();
-  }
-}
-
-/**
- * Converts a JSON Schema to a Zod schema for runtime validation
- *
- * @param jsonSchema JSON Schema
- * @param toolName Tool name for error reporting
- * @returns Zod schema
- */
-function getZodSchemaFromJsonSchema(jsonSchema: any, toolName: string): z.ZodTypeAny {
-  if (typeof jsonSchema !== 'object' || jsonSchema === null) {
-    return z.object({}).passthrough();
-  }
-  try {
-    const zodSchema = jsonSchemaToZodSchema(jsonSchema);
-    if (typeof zodSchema?.parse !== 'function') {
-      throw new Error('Failed to produce a valid Zod schema.');
-    }
-    return zodSchema as z.ZodTypeAny;
-  } catch (err: any) {
-    console.error(`Failed to generate Zod schema for '${toolName}':`, err);
-    return z.object({}).passthrough();
-  }
 }

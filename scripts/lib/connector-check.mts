@@ -55,10 +55,21 @@ export interface AuthorizeObservations {
   undeclaredRedirects: AuthorizeOutcome[];
 }
 
+export interface Challenge {
+  status: number;
+  wwwAuthenticate: string | null;
+}
+
 export interface ConnectorObservations {
   serverUrl: string;
-  /** The response to an unauthenticated MCP initialize request. */
-  challenge: { status: number; wwwAuthenticate: string | null };
+  /** The response to an unauthenticated 2025-era MCP `initialize` request. */
+  challenge: Challenge;
+  /**
+   * The response to an unauthenticated MCP 2026-07-28 `server/discover`
+   * request, the first request a 2026-07-28 client sends (no `initialize`
+   * handshake in that revision).
+   */
+  modernChallenge: Challenge;
   resourceMetadata: unknown;
   authServerMetadata: unknown;
   /** Slowest of the discovery and token requests Claude makes. */
@@ -101,14 +112,22 @@ export function classifyAuthorizeChain(hops: AuthorizeHop[], redirectUri: string
   return 'sign-in';
 }
 
-function checkChallenge({ challenge }: ConnectorObservations): string[] {
+function checkOneChallenge(opening: string, challenge: Challenge): string[] {
   if (challenge.status !== 401) {
-    return [`An unauthenticated request got ${challenge.status}; Claude starts sign-in only on a 401.`];
+    return [`An unauthenticated ${opening} got ${challenge.status}; Claude starts sign-in only on a 401.`];
   }
   if (parseResourceMetadataUrl(challenge.wwwAuthenticate) === null) {
-    return ['The 401 has no WWW-Authenticate resource_metadata pointer, so Claude can only guess where the metadata lives.'];
+    return [`The 401 to ${opening} has no WWW-Authenticate resource_metadata pointer, so Claude can only guess where the metadata lives.`];
   }
   return [];
+}
+
+// Clients open with either protocol era, and both have to reach sign-in.
+function checkChallenge({ challenge, modernChallenge }: ConnectorObservations): string[] {
+  return [
+    ...checkOneChallenge('2025-era initialize request', challenge),
+    ...checkOneChallenge('2026-07-28 server/discover request', modernChallenge),
+  ];
 }
 
 function checkResourceMetadata({ serverUrl, resourceMetadata, authServerMetadata }: ConnectorObservations): string[] {

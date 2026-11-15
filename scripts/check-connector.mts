@@ -20,6 +20,7 @@ import {
   type AuthorizeHop,
   type AuthorizeObservations,
   type AuthorizeOutcome,
+  type Challenge,
 } from './lib/connector-check.mts';
 
 interface OAuthClient {
@@ -202,19 +203,40 @@ async function observeBogusRefresh(tokenEndpoint: string): Promise<{ status: num
   return { status: response.status, error: ((await jsonOrNull(response)) as { error?: unknown } | null)?.error };
 }
 
-async function observe(serverUrl: string) {
-  const challenge = await timedRequest(serverUrl, {
+const CLIENT_INFO = { name: 'check-connector', version: '0' };
+
+/** POSTs an unauthenticated MCP request and keeps what sign-in starts from. */
+async function observeChallenge(serverUrl: string, headers: Record<string, string>, request: object): Promise<Challenge> {
+  const response = await timedRequest(serverUrl, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'check-connector', version: '0' } },
-    }),
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...headers },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...request }),
   });
-  const wwwAuthenticate = challenge.headers.get('www-authenticate');
-  const metadataUrl = parseResourceMetadataUrl(wwwAuthenticate);
+  return { status: response.status, wwwAuthenticate: response.headers.get('www-authenticate') };
+}
+
+async function observe(serverUrl: string) {
+  const challenge = await observeChallenge(serverUrl, {}, {
+    method: 'initialize',
+    params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: CLIENT_INFO },
+  });
+  // What a 2026-07-28 client sends first: server/discover with the per-request
+  // _meta envelope and the matching MCP-Protocol-Version / Mcp-Method headers.
+  const modernChallenge = await observeChallenge(
+    serverUrl,
+    { 'mcp-protocol-version': '2026-07-28', 'mcp-method': 'server/discover' },
+    {
+      method: 'server/discover',
+      params: {
+        _meta: {
+          'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          'io.modelcontextprotocol/clientCapabilities': {},
+          'io.modelcontextprotocol/clientInfo': CLIENT_INFO,
+        },
+      },
+    }
+  );
+  const metadataUrl = parseResourceMetadataUrl(challenge.wwwAuthenticate);
   const resourceMetadata = metadataUrl === null ? null : await jsonOrNull(await timedRequest(metadataUrl));
   const issuer = (resourceMetadata as { authorization_servers?: unknown[] } | null)?.authorization_servers?.[0];
   const authServerMetadata = typeof issuer === 'string' ? await fetchAuthServerMetadata(issuer) : null;
@@ -222,7 +244,8 @@ async function observe(serverUrl: string) {
 
   return {
     serverUrl,
-    challenge: { status: challenge.status, wwwAuthenticate },
+    challenge,
+    modernChallenge,
     resourceMetadata,
     authServerMetadata,
     bogusRefresh: endpoints === null ? null : await observeBogusRefresh(endpoints.token_endpoint),

@@ -13,7 +13,7 @@ npm run check-plugin      # Static gate: fails if plugins/blindpay breaks a Clau
 npm run check-openai-plugin  # Static gate: fails if plugins/openai breaks an OpenAI submission limit or leaves /mcp/readonly
 npm run check-versions    # Static gate: fails if a store manifest's version differs from package.json
 npm run check-connector   # Live check: walks the OAuth sign-in of Claude, Claude Code, VS Code, ChatGPT, Cursor and Grok Build against mcp.blindpay.com/mcp/readonly (not in CI)
-npm test                  # Unit tests for scripts/lib (node:test via tsx)
+npm test                  # Unit tests for scripts/lib, plus stdio wire tests for both MCP eras (node:test via tsx)
 npm run pack:openai       # ZIP for the ChatGPT/Codex plugin directory, in build-plugins/
 ```
 
@@ -79,6 +79,9 @@ scripts/lib/tool-map.mts    # Pure helpers (extraction, renaming, the
 scripts/lib/openapi.mts     # Ports of the hosted server's spec helpers
                             # (dereference, input schemas, webhook events),
                             # with openapi.test.mts next to it.
+scripts/stdio-server.test.mts  # Wire tests: spawns src/index.ts and speaks
+                            # raw JSON-RPC in both MCP eras (2026-07-28 and
+                            # the 2025 initialize fallback). Runs in npm test.
 scripts/check-plugin.mts    # Claude directory gate for plugins/blindpay,
                             # used by ci.yml. Reads tracked files only.
 scripts/lib/plugin-check.mts  # Pure rules behind check-plugin, with
@@ -140,10 +143,11 @@ webhook events):
    upstream in the API spec. `WEBHOOK_EVENTS` works the same way through
    `/* __WEBHOOK_EVENTS__ */`.
 3. **Helpers + entrypoint** (`instanceParamName`, `clientInputSchema`,
-   `registerWebhookResources`, `acquireOAuth2Token`, `executeApiTool`,
-   `formatResponseBody`, `formatApiError`, `jsonSchemaToZodSchema`,
-   `getZodSchemaFromJsonSchema`, `main`, `cleanup`). Fully hand-written, never touched by the sync
-   script. This is where you add new customizations.
+   `buildServer`, `registerWebhookResources`, `acquireOAuth2Token`,
+   `executeApiTool`, `formatResponseBody`, `formatApiError`,
+   `unsupportedVersionError`, `versionCheckedStdioTransport`, `main`,
+   `cleanup`). Fully hand-written, never touched by the sync script. This is
+   where you add new customizations.
 
 ## Customizations baked into the template
 
@@ -151,12 +155,31 @@ These used to be a checklist a human (or an LLM) had to remember to
 preserve on every merge. Now they're just what the template says, so they
 can't drift:
 
-1. **`McpServer` instantiation.** `const mcpServer = new McpServer(...)`,
-   `const server = mcpServer.server`, and `mcpServer.server.connect(transport)`
-   in `main()`, instead of the generator's bare `Server`.
-2. **Custom `jsonSchemaToZodSchema` / `getZodSchemaFromJsonSchema`.** The
-   generator's stock output uses `json-schema-to-zod`, which relies on
-   `eval()`. Do not add that dependency back.
+1. **MCP SDK v2 (`@modelcontextprotocol/server`), served by `serveStdio`.**
+   The generator emits a v1 `@modelcontextprotocol/sdk` `Server` with raw
+   ListTools/CallTool handlers; the template instead builds an `McpServer`
+   in `buildServer()`, one `registerTool` per profile tool, and `main()`
+   hands that factory to `serveStdio`. `serveStdio` serves MCP 2026-07-28
+   natively (`server/discover`, per-request `_meta`, `resultType`,
+   `ttlMs`/`cacheScope`) and still answers a 2025-era `initialize` from the
+   same factory, so older clients keep working. Don't go back to a
+   hand-wired `StdioServerTransport` + `connect`: that path is 2025-only
+   (the one `StdioServerTransport` left is the one wrapped below, handed to
+   `serveStdio`). `main()` passes `serveStdio` a `versionCheckedStdioTransport()`, which
+   answers -32022 to any request whose `_meta` names a revision outside
+   `MODERN_PROTOCOL_VERSIONS`: the spec checks the version on every request,
+   and `serveStdio` 2.4.0 only checks the opening one. Keep
+   `MODERN_PROTOCOL_VERSIONS` equal to what `server/discover` answers (a test
+   fails when they drift), and delete the wrapper once the SDK checks every
+   request itself. `buildServer()` advertises `listChanged: false` for tools
+   and resources: both are fixed for the life of the process, and the SDK's
+   default `true` promises notifications it never sends.
+2. **No `eval` in argument validation.** Each tool's schema goes through
+   `fromJsonSchema(schema, new CfWorkerJsonSchemaValidator())`. The SDK's Node
+   default (Ajv) compiles schemas with `new Function`, and the generator's
+   stock `json-schema-to-zod` uses `eval()`; don't switch to either. The SDK
+   rejects invalid arguments (and unknown tools) before `executeApiTool`
+   runs, as on the hosted server.
 3. **`global.__oauthTokenCache ??= {}`** instead of the generator's verbose
    `if (typeof ... === 'undefined')` block.
 4. **`BLINDPAY_API_KEY` fallback** in both the bearer-auth check and the
@@ -195,6 +218,15 @@ with it. When one of these changes there, change it here too:
   same list `/mcp/readonly` uses, and a top-level `trace_id` dropped from JSON
   responses, as `/mcp/readonly` does.
 - **Tool results.** `HTTP <status>` then the full body, `isError` on 4xx/5xx.
+- **Protocol.** Both run on SDK v2 and serve MCP 2026-07-28 with a 2025-era
+  fallback (hosted through `createMcpHandler({ legacy: 'stateless' })`, this
+  package through `serveStdio`). Hosted classifies each HTTP request on its
+  own, so it checks the protocol version on every request; here
+  `versionCheckedStdioTransport` does the same over one stdio connection.
+  Neither sets `cacheHints`, so cacheable results carry the SDK default
+  `ttlMs: 0`, `cacheScope: 'private'`.
+  `scripts/stdio-server.test.mts` checks both eras on the wire and that they
+  list the same tools and resources.
 
 Deliberate differences:
 
@@ -208,6 +240,9 @@ Deliberate differences:
   in-process, so it never sees one.
 - `SERVER_NAME`, and the version, which is this package's npm semver, not
   the hosted tool-surface one.
+- `capabilities.tools` and `capabilities.resources` say `listChanged: false`;
+  hosted still advertises the SDK default `true` (its lists are fixed too,
+  so it should follow).
 
 Regenerate from the public spec the way blindpay-v2's `mcp-sync.yml` builds
 it: `bun scripts/openapi-public-filter.ts --in apps/api/openapi.json --out

@@ -34,6 +34,10 @@ function validObservations(): ConnectorObservations {
       status: 401,
       wwwAuthenticate: `Bearer resource_metadata="https://mcp.blindpay.com/.well-known/oauth-protected-resource/mcp/readonly", scope="profile email offline_access"`,
     },
+    modernChallenge: {
+      status: 401,
+      wwwAuthenticate: `Bearer resource_metadata="https://mcp.blindpay.com/.well-known/oauth-protected-resource/mcp/readonly", scope="profile email offline_access"`,
+    },
     resourceMetadata: { resource: SERVER, authorization_servers: [ISSUER] },
     authServerMetadata: {
       issuer: ISSUER,
@@ -124,6 +128,14 @@ test('a connector that meets every rule has no problems', () => {
 test('unauthenticated requests must get a 401, since Claude ignores challenges on a 200', () => {
   const o = validObservations();
   assert.equal(problemsMatching({ ...o, challenge: { ...o.challenge, status: 200 } }, /401/).length, 1);
+});
+
+test('a 2026-07-28 opening must get the same 401 as a 2025-era one', () => {
+  const o = validObservations();
+  const problems = problemsMatching({ ...o, modernChallenge: { ...o.modernChallenge, status: 400 } }, /2026-07-28/);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /401/);
+  assert.equal(problemsMatching({ ...o, modernChallenge: { status: 401, wwwAuthenticate: 'Bearer' } }, /resource_metadata/).length, 1);
 });
 
 test('the 401 must point at the protected resource metadata', () => {
