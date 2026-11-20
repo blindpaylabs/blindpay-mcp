@@ -140,9 +140,9 @@ webhook events):
    upstream in the API spec. `WEBHOOK_EVENTS` works the same way through
    `/* __WEBHOOK_EVENTS__ */`.
 3. **Helpers + entrypoint** (`instanceParamName`, `clientInputSchema`,
-   `registerWebhookResources`, `acquireOAuth2Token`, `executeApiTool`,
-   `formatResponseBody`, `formatApiError`, `jsonSchemaToZodSchema`,
-   `getZodSchemaFromJsonSchema`, `main`, `cleanup`). Fully hand-written, never touched by the sync
+   `registerWebhookResources`, `createServer`, `acquireOAuth2Token`,
+   `executeApiTool`, `formatResponseBody`, `formatApiError`, `main`,
+   `cleanup`). Fully hand-written, never touched by the sync
    script. This is where you add new customizations.
 
 ## Customizations baked into the template
@@ -151,18 +151,31 @@ These used to be a checklist a human (or an LLM) had to remember to
 preserve on every merge. Now they're just what the template says, so they
 can't drift:
 
-1. **`McpServer` instantiation.** `const mcpServer = new McpServer(...)`,
-   `const server = mcpServer.server`, and `mcpServer.server.connect(transport)`
-   in `main()`, instead of the generator's bare `Server`.
-2. **Custom `jsonSchemaToZodSchema` / `getZodSchemaFromJsonSchema`.** The
-   generator's stock output uses `json-schema-to-zod`, which relies on
-   `eval()`. Do not add that dependency back.
+1. **v2 SDK, both protocol eras.** The template imports
+   `@modelcontextprotocol/server` (v2), not the generator's
+   `@modelcontextprotocol/sdk` (v1, which has no 2026-07-28 support).
+   `createServer()` builds an `McpServer` the way hosted `buildServer` does,
+   and `main()` hands it to `serveStdio`. On each connection, `serveStdio`
+   reads the client's first message to choose the era: a 2026-07-28 client
+   (`_meta` on every request, `server/discover`) is served statelessly, and
+   an `initialize` gets the 2025-era handshake. The SDK writes every
+   2026-07-28 wire field (`resultType`, `ttlMs`/`cacheScope`, the
+   `serverInfo` `_meta`, `-32022`, `subscriptions/listen`), so the template
+   never builds protocol shapes by hand.
+2. **Tools registered with `fromJsonSchema`, as on hosted.** `tools/list`
+   advertises each tool's raw JSON Schema, byte for byte. The SDK validates
+   arguments against that schema, so an invalid argument comes back as an
+   `isError` result and an unknown tool as `-32602`. The SDK's bundled ajv
+   compiles each schema into a JavaScript function at runtime. That is
+   acceptable because it only ever compiles the schemas committed in this
+   package, never runtime input. Still, do not add `json-schema-to-zod` back,
+   and do not add any other library that runs `eval()` on generated code.
 3. **`global.__oauthTokenCache ??= {}`** instead of the generator's verbose
    `if (typeof ... === 'undefined')` block.
 4. **`BLINDPAY_API_KEY` fallback** in both the bearer-auth check and the
    bearer-auth apply sections of `executeApiTool`.
 5. **`BLINDPAY_INSTANCE_ID` auto-inject** in `executeApiTool`, right after
-   the arguments are validated, into the instance param (`instance_id`,
+   the SDK has validated the arguments, into the instance param (`instance_id`,
    `id` on `/v1/instances/{id}` routes, or the `instance_id` query param of
    `PostV1Presign`). It overrides a model-supplied value, and `tools/list`
    then marks the param optional, as the hosted server does.
@@ -195,6 +208,11 @@ with it. When one of these changes there, change it here too:
   same list `/mcp/readonly` uses, and a top-level `trace_id` dropped from JSON
   responses, as `/mcp/readonly` does.
 - **Tool results.** `HTTP <status>` then the full body, `isError` on 4xx/5xx.
+- **Protocol.** MCP 2026-07-28 natively, with 2025-era clients still
+  served, through the same v2 SDK (`@modelcontextprotocol/server`). Hosted
+  does this with `createMcpHandler({ legacy: 'stateless' })`, this package
+  with `serveStdio`. Neither sets `cacheHints`, so the SDK's defaults go out
+  (`ttlMs: 0`, `cacheScope: 'private'`).
 
 Deliberate differences:
 
