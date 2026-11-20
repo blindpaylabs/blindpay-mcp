@@ -139,7 +139,8 @@ webhook events):
    spec). Never hand-edit tool entries, not even in the template, fix them
    upstream in the API spec. `WEBHOOK_EVENTS` works the same way through
    `/* __WEBHOOK_EVENTS__ */`.
-3. **Helpers + entrypoint** (`instanceParamName`, `clientInputSchema`,
+3. **Helpers + entrypoint** (`isToolInProfile`, `toolTitle`,
+   `toolAnnotations`, `instanceParamName`, `clientInputSchema`,
    `registerWebhookResources`, `createServer`, `acquireOAuth2Token`,
    `executeApiTool`, `formatResponseBody`, `formatApiError`, `main`,
    `cleanup`). Fully hand-written, never touched by the sync
@@ -155,8 +156,8 @@ can't drift:
    `@modelcontextprotocol/server` (v2), not the generator's
    `@modelcontextprotocol/sdk` (v1, which has no 2026-07-28 support).
    `createServer()` builds an `McpServer` the way hosted `buildServer` does,
-   and `main()` hands it to `serveStdio`. On each connection, `serveStdio`
-   reads the client's first message to choose the era: a 2026-07-28 client
+   and `main()` passes that factory to `serveStdio`, which calls it once per
+   connection after the client's first message picks the era: a 2026-07-28 client
    (`_meta` on every request, `server/discover`) is served statelessly, and
    an `initialize` gets the 2025-era handshake. The SDK writes every
    2026-07-28 wire field (`resultType`, `ttlMs`/`cacheScope`, the

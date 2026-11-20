@@ -1713,9 +1713,7 @@ async function executeApiTool(
  * Main function to start the server
  */
 async function main() {
-  // serveStdio picks the protocol era from the client's first message: a
-  // 2026-07-28 request (per-request _meta, server/discover) is served
-  // statelessly, an `initialize` gets the 2025-era handshake as before.
+  // legacy defaults to 'serve': clients that still open with `initialize` keep working.
   try {
     serveStdio(createServer, {
       onerror: (error) => console.error('MCP transport error:', error),
