@@ -1,7 +1,7 @@
 {
   "name": "@blindpay/mcp",
   "mcpName": "com.blindpay/mcp",
-  "version": "1.10.3",
+  "version": "1.10.4",
   "description": "Official MCP Server for BlindPay API - Stablecoin API for global payments",
   "type": "module",
   "main": "build/index.js",
@@ -59,10 +59,9 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/server": "^2.4.0",
     "axios": "^1.20.0",
-    "dotenv": "^16.4.5",
-    "zod": "^3.24.3"
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
